@@ -416,7 +416,6 @@ if __name__ == "__main__":
 
     if divergence == False:
         print("---------------------------------------------------------------------")
-        print("Divergent for R_E = " + str(j) + " and R_G = " + str(R_g) + " at order n = " + str(i))
         print("---------------------------------------------------------------------")
         print("-------------------- PARAMETERS USED -------------------------")
         print("nu = " , Rossby(j,R_g)[0])
