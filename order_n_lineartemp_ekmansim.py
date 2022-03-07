@@ -18,8 +18,8 @@ de.logging_setup.rootlogger.setLevel('ERROR')  # suppress logging msgs
 nx = 256  # fourier resolution
 nz = 512  # chebyshev resolution
 
-H = 100  # depth of water in meters
-h_e = 10 #ekman thickness
+H = 10  # depth of water in meters
+h_e = 1 #ekman thickness
 
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
@@ -368,8 +368,8 @@ def main(n,R_e,R_g):
 #    Main Loop
 if __name__ == "__main__":
     #ekman rossby values run s.t. first one is the linearly converging state
-    ek_rossby_vals = np.array([0.4])
-    R_g = 0.05
+    ek_rossby_vals = np.array([0.9])
+    R_g = 0.1
     plt.figure(figsize=(10, 6))
     start_time = time.time()
     count=0
@@ -414,7 +414,21 @@ if __name__ == "__main__":
             print("----------- Rossby Run number " + str(count) + "/" + str(len(ek_rossby_vals)) + " DONE -----------" )
             plt.plot(np.arange(0, N + 1), max_vals / max_vals[0], label= '$R_E = $' + str(j))  # normalized max_vals
 
-
+    if divergence == False:
+        print("---------------------------------------------------------------------")
+        print("Divergent for R_E = " + str(j) + " and R_G = " + str(R_g) + " at order n = " + str(i))
+        print("---------------------------------------------------------------------")
+        print("-------------------- PARAMETERS USED -------------------------")
+        print("nu = " , Rossby(j,R_g)[0])
+        print("f = " , Rossby(j,R_g)[1])
+        print("r = " , Rossby(j,R_g)[2])
+        print("tau = " , Rossby(j,R_g)[3])
+        print ("L = ", L)
+        print ("H = ", H)
+        print("h_e = ", h_e)
+        print("nx = ", nx)
+        
+        
     plt.grid(color='green', linestyle='--', linewidth=0.5)
     plt.ylabel('Normalized Max($\psi_{correction}$)')
     plt.xlabel('order of correction ')
