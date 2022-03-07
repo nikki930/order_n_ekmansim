@@ -1,28 +1,35 @@
 import os
 import numpy as np
+from tqdm import tqdm
+from tqdm.notebook import tqdm_notebook
 import time
 import h5py
 import math
 import matplotlib.pyplot as plt
+import sys
+from contextlib import suppress
 
+#sys.path[0] = ""
 from dedalus import public as de
 from dedalus.extras import plot_tools
 
-de.logging_setup.rootlogger.setLevel('ERROR')  # supress logging msgs
+de.logging_setup.rootlogger.setLevel('ERROR')  # suppress logging msgs
 
-nx = 64  # fourier resolution
+nx = 256  # fourier resolution
 nz = 512  # chebyshev resolution
 
-H = 50  # depth of water in meters
+H = 100  # depth of water in meters
+h_e = 10 #ekman thickness
 
-dh = 0.1  # ekman thickness
-da = 0.01  # aspect ratio
+dh = h_e/H  # dh = ekman thickness divided by H
+da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
 
-N = 10 # the order up to which the model runs
+N = 50 # the order up to which the model runs
 
 L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
+print (L)
 k = (2 * np.pi) / (L)
 def Rossby(R_e, R_g):
 
@@ -30,11 +37,8 @@ def Rossby(R_e, R_g):
     R_g_temp = R_g / (2 * np.pi)
 
     nu_func = lambda f, H, delta_h: (f * (H ** 2) * (delta_h) ** 2) / 2
-
-    tau_func = lambda f, delta_h, R_e, delta_a, H: (R_e * f ** 2) * (H ** 2) * (delta_h / delta_a)
-    r_func = lambda f, delta_h, R_e, R_g: (delta_h * R_e * f) / (R_g)
-
-
+    tau_func = lambda f, delta_h, Re, delta_a, H: (Re * f ** 2) * (H ** 2) * (delta_h / delta_a)
+    r_func = lambda f, delta_h, Re, Rg: (delta_h * Re * f) / (Rg)
 
     nu_value_temp = nu_func(f, H, dh)  # m^2/second
     tau_value_temp = tau_func(f, dh, R_e_temp, da, H)
@@ -148,7 +152,7 @@ class Solver_n:
 
         else:
             n=n_solve-1
-            print ("n_solve-1=",n)
+            #print ("n_solve-1=",n)
             for j in range(0, n+1):
                 J1 += psi_x_arr[j, :] * zeta_z_arr[n - j, :] - psi_z_arr[j, :] * zeta_x_arr[n - j, :]
                 J2 += psi_x_arr[j, :] * v_z_arr[n - j, :] - psi_z_arr[j, :] * v_x_arr[n - j, :]
@@ -177,14 +181,16 @@ class Solver_n:
         global solver
         global state
 
-        print("n_solve=",self.n)
+        #print("n_solve=",self.n)
 
         problem = de.LBVP(domain, variables=['psi', 'u', 'v', 'vx',
                                              'vz', 'zeta',
                                              'zetaz', 'zetax', 'psix', 'psiz'])
+
+        a_visc = ((nx/2)**2)/(h_e**2)
         # setting up all parameters
         problem.parameters['nu'] = self.nu  # viscosity
-        problem.parameters['nu_h'] = 20* self.nu
+        problem.parameters['nu_h'] = a_visc * self.nu
         problem.parameters['f'] = self.f  # coriolis param
         problem.parameters['r'] = self.r  # damping param
         problem.parameters['A'] = self.tau  # forcing param
@@ -206,14 +212,14 @@ class Solver_n:
         problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")  # zeta = grad^2(psi)
 
         problem.add_equation("(dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  -f*u = Jac_psi_v")  # nu* grad^2 v  - fu=0
-        problem.add_equation("(dx(dx(zeta))*nu_h + dz(zetaz))*nu + f*vz = Jac")  # nu* grad^2 zeta + fv_z=0
+        problem.add_equation("(dx(dx(zeta))*nu_h + dz(zetaz)*nu) + f*vz = Jac")  # nu* grad^2 zeta + fv_z=0
 
         # for 0th order
         if self.n == 0:
             problem.add_bc("vz(z='right') = (A/nu)*sin(x*k)")  # wind forcing on 0th order boundary condition
         else:
             problem.add_bc("vz(z='right') = 0")  # no wind forcing for higher orders
-            print('bc')
+            #print('bc')
         # Boundary conditions:
         problem.add_bc("psi(z='left') = 0")
         problem.add_bc("psi(z='right') = 0")
@@ -362,20 +368,51 @@ def main(n,R_e,R_g):
 #    Main Loop
 if __name__ == "__main__":
     #ekman rossby values run s.t. first one is the linearly converging state
-    ek_rossby_vals = np.array([0.25])
-    R_g = 0.1
+    ek_rossby_vals = np.array([0.4])
+    R_g = 0.05
     plt.figure(figsize=(10, 6))
     start_time = time.time()
     count=0
+
+    p = tqdm(total=N, disable=False)
+    divergence = None
+
     for j in ek_rossby_vals:  #runs for R_e in ek_rossby_vals
         count += 1
         max_vals = np.zeros(N + 1) #reinitialize max_vals for each rossby number run
 
-        for i in range(0, N + 1):  #runs for order i
+        for i in tqdm_notebook(range(0,N + 1)):  #runs for order i
+
+            p.update(1)
             main(i,j,R_g)
 
-        print("----------- Rossby Run number " + str(count) + "/" + str(len(ek_rossby_vals)) + " DONE -----------" )
-        plt.plot(np.arange(0, N + 1), max_vals / max_vals[0], label= '$R_E = $' + str(j))  # normalized max_vals
+            if i>2:
+                if max_vals[i] > max_vals[1]:
+                    divergence = True
+                    break
+                else:
+                    divergence = False
+
+        p.close()
+
+        if divergence == True:
+            print("---------------------------------------------------------------------")
+            print("Divergent for R_E = " + str(j) + " and R_G = " + str(R_g) + " at order n = " + str(i))
+            print("---------------------------------------------------------------------")
+            print("-------------------- PARAMETERS USED -------------------------")
+            print("nu = " , Rossby(j,R_g)[0])
+            print("f = " , Rossby(j,R_g)[1])
+            print("r = " , Rossby(j,R_g)[2])
+            print("tau = " , Rossby(j,R_g)[3])
+            print ("L = ", L)
+            print ("H = ", H)
+            print("h_e = ", h_e)
+            print("nx = ", nx)
+            plt.plot(np.arange(0, i + 1), max_vals[0:i+1] / max_vals[0], label='$R_E = $' + str(j))  # normalized max_vals
+            break
+        else:
+            print("----------- Rossby Run number " + str(count) + "/" + str(len(ek_rossby_vals)) + " DONE -----------" )
+            plt.plot(np.arange(0, N + 1), max_vals / max_vals[0], label= '$R_E = $' + str(j))  # normalized max_vals
 
 
     plt.grid(color='green', linestyle='--', linewidth=0.5)
@@ -386,4 +423,4 @@ if __name__ == "__main__":
     plt.legend()
     plt.savefig('psimax_order')
 
-    print("--- %s seconds ---" % (time.time() - start_time))
+    print("Total Runtime: --- %s seconds ---" % (time.time() - start_time))
