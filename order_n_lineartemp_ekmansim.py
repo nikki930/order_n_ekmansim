@@ -29,7 +29,7 @@ N = 50 # the order up to which the model runs
 
 L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
-print (L)
+print ("L = ", L)
 k = (2 * np.pi) / (L)
 def Rossby(R_e, R_g):
 
@@ -211,8 +211,8 @@ class Solver_n:
         problem.add_equation("psix - dx(psi)=0")  # auxilary
         problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")  # zeta = grad^2(psi)
 
-        problem.add_equation("(dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  -f*u = Jac_psi_v")  # nu* grad^2 v  - fu=0
-        problem.add_equation("(dx(dx(zeta))*nu_h + dz(zetaz)*nu) + f*vz = Jac")  # nu* grad^2 zeta + fv_z=0
+        problem.add_equation("(dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  +f*u = Jac_psi_v")  # nu* grad^2 v  - fu=0
+        problem.add_equation("(dx(dx(zeta))*nu_h + dz(zetaz)*nu) - f*vz = Jac")  # nu* grad^2 zeta + fv_z=0
 
         # for 0th order
         if self.n == 0:
@@ -368,7 +368,7 @@ def main(n,R_e,R_g):
 #    Main Loop
 if __name__ == "__main__":
     #ekman rossby values run s.t. first one is the linearly converging state
-    ek_rossby_vals = np.array([0.9])
+    ek_rossby_vals = np.array([1.4])
     R_g = 0.1
     plt.figure(figsize=(10, 6))
     start_time = time.time()
