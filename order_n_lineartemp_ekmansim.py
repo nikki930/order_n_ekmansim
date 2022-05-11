@@ -15,17 +15,17 @@ from dedalus.extras import plot_tools
 
 de.logging_setup.rootlogger.setLevel('ERROR')  # suppress logging msgs
 
-nx = 256  # fourier resolution
-nz = 512  # chebyshev resolution
+nx = 512  # fourier resolution
+nz = 128  # chebyshev resolution
 
 H = 10  # depth of water in meters
-h_e = 1 #ekman thickness
+h_e = 0.1 #ekman thickness
 
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
 
-N = 50 # the order up to which the model runs
+N = 100 # the order up to which the model runs
 
 L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
@@ -187,7 +187,8 @@ class Solver_n:
                                              'vz', 'zeta',
                                              'zetaz', 'zetax', 'psix', 'psiz'])
 
-        a_visc = ((nx/2)**2)/(h_e**2)
+        a_visc = ((290/2)**2)/(h_e**2)
+        #a_visc = 300
         # setting up all parameters
         problem.parameters['nu'] = self.nu  # viscosity
         problem.parameters['nu_h'] = a_visc * self.nu
@@ -309,13 +310,13 @@ class Solver_n:
 
             psi_arr_corrected[self.n, :, :] = psi_arr[0, :, :]
             # print(psi_arr[0,:,:])
-            CS1 = plt.contourf(Z, X, psi_arr_corrected[0, :, :], cmap='seismic')
+            CS1 = plt.contourf(Z, X, psi_arr_corrected[0, :, :],20,cmap='seismic')
             cbar = fig.colorbar(CS1)
         else:
             psi_arr_corrected[self.n, :, :] = psi_arr_corrected[self.n - 1, :, :] + psi_arr[self.n, :, :]
             # print(psi_arr_corrected[1,:,:])
 
-            CS2 = plt.contourf(Z, X, psi_arr_corrected[self.n, :, :], cmap='seismic')
+            CS2 = plt.contourf(Z, X, psi_arr_corrected[self.n, :, :], 20, cmap='seismic')
             cbar = fig.colorbar(CS2)
 
         cbar.ax.set_ylabel('Streamfunction (kg/ms)')
@@ -368,7 +369,7 @@ def main(n,R_e,R_g):
 #    Main Loop
 if __name__ == "__main__":
     #ekman rossby values run s.t. first one is the linearly converging state
-    ek_rossby_vals = np.array([1.4])
+    ek_rossby_vals = np.array([1.34])
     R_g = 0.1
     plt.figure(figsize=(10, 6))
     start_time = time.time()
@@ -408,6 +409,8 @@ if __name__ == "__main__":
             print ("H = ", H)
             print("h_e = ", h_e)
             print("nx = ", nx)
+            print("nz = ", nz)
+            print("Re = ", str(j))
             plt.plot(np.arange(0, i + 1), max_vals[0:i+1] / max_vals[0], label='$R_E = $' + str(j))  # normalized max_vals
             break
         else:
@@ -426,6 +429,8 @@ if __name__ == "__main__":
         print ("H = ", H)
         print("h_e = ", h_e)
         print("nx = ", nx)
+        print("nz = ", nz)
+        print("Re = ", ek_rossby_vals)
         
         
     plt.grid(color='green', linestyle='--', linewidth=0.5)
@@ -437,3 +442,5 @@ if __name__ == "__main__":
     plt.savefig('psimax_order')
 
     print("Total Runtime: --- %s seconds ---" % (time.time() - start_time))
+
+
