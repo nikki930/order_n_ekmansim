@@ -1,11 +1,17 @@
-import os
+"""
+This file is based on the ekman_plotting.py file, with changes made for it to run in the dedalus version 3 environment.
+Although dedalus3 is a beta version, it is a version which allows for easy plotting in the basis the problem was solved in,
+which rectifies the previous problem of plotting the chebyshev-resoled z axis on a non-chebysehv vertical grid.
+"""
+
+
 import numpy as np
 import time
 import h5py
-import math
 import matplotlib.pyplot as plt
 import dedalus.public as d3
 
+########################## MUST MATCH MASTER RUN FILE ##################################################################
 N=100
 nx = 512  # fourier resolution
 nz = 128  # chebyshev resolution
@@ -17,6 +23,31 @@ da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
 L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
+
+def Rossby(R_e, R_g):
+
+    R_e_temp = R_e / (2 * np.pi)
+    R_g_temp = R_g / (2 * np.pi)
+
+    nu_func = lambda f, H, delta_h: (f * (H ** 2) * (delta_h) ** 2) / 2
+    tau_func = lambda f, delta_h, Re, delta_a, H: (Re * f ** 2) * (H ** 2) * (delta_h / delta_a)
+    r_func = lambda f, delta_h, Re, Rg: (delta_h * Re * f) / (Rg)
+
+    nu_value_temp = nu_func(f, H, dh)  # m^2/second
+    tau_value_temp = tau_func(f, dh, R_e_temp, da, H)
+    r_value_temp = r_func(f, dh, R_e_temp, R_g_temp)
+    f_value_temp = f
+
+    return nu_value_temp,f_value_temp,r_value_temp,tau_value_temp
+
+ek_rossby = 1.65
+geo_rossby = 0.1
+A_v = Rossby(ek_rossby,geo_rossby)[0] #vertical viscosity
+A_h =  Rossby(ek_rossby,geo_rossby)[0] * ((300/2)**2)/(h_e**2) #horizontal viscosity
+f = Rossby(ek_rossby,geo_rossby)[1] #vertical viscosity
+
+########################################################################################################################
+
 
 zcoord = d3.Coordinate('z')
 dist = d3.Distributor(zcoord)
@@ -33,6 +64,8 @@ zeta_arr = np.zeros((N + 1, nx, nz))
 zeta_arr_corrected = np.zeros((N + 1, nx, nz))
 zeta_x_arr = np.zeros((N + 1, nx, nz))
 zeta_z_arr = np.zeros((N + 1, nx, nz))
+zeta_zz_arr = np.zeros((N + 1, nx, nz))
+zeta_zz_arr_corrected = np.zeros((N + 1, nx, nz))
 v_z_arr = np.zeros((N + 1, nx, nz))
 v_x_arr = np.zeros((N + 1, nx, nz))
 v_arr = np.zeros((N + 1, nx, nz))
@@ -56,12 +89,14 @@ for i in range(N+1):
         # zeta_arr[i, :, :] = np.array(file['tasks']['<zeta>'])  # zeta
         # zeta_x_arr[i, :, :] = np.array(file['tasks']['<zetax>'])  # d/dx (zeta)
         # zeta_z_arr[i, :, :] = np.array(file['tasks']['<zetaz>'])  # d/dz (zeta)
+        zeta_zz_arr[i, :, :] = np.array(file['tasks']['<zetazz>'])  # d/dz (zeta)
         v_x_arr[i, :, :] = np.array(file['tasks']['<vx>'])  #
         v_z_arr[i, :, :] = np.array(file['tasks']['<vz>'])  #
         v_arr[i, :, :] = np.array(file['tasks']['<v>'])  #
     if i == 0:
         psi_arr_corrected[i, :, :] = psi_arr[0, :, :]
         zeta_arr_corrected[i, :, :] = zeta_arr[0, :, :]
+        zeta_zz_arr_corrected[i, :, :] = zeta_zz_arr[0, :, :]
         psi_x_arr_corrected[i, :, :] = psi_x_arr[0, :, :]
         psi_z_arr_corrected[i, :, :] = psi_z_arr[0, :, :]
         v_arr_corrected[i, :, :] = v_arr[0, :, :]
@@ -70,6 +105,7 @@ for i in range(N+1):
     else:
         psi_arr_corrected[i, :, :] = psi_arr_corrected[i - 1, :, :] + psi_arr[i, :, :]
         zeta_arr_corrected[i, :, :] = zeta_arr_corrected[i - 1, :, :] + zeta_arr[i, :, :]
+        zeta_zz_arr_corrected[i, :, :] = zeta_zz_arr_corrected[i - 1, :, :] + zeta_zz_arr[i, :, :]
         psi_x_arr_corrected[i, :, :] = psi_x_arr_corrected[i - 1, :, :] + psi_x_arr[i, :, :]
         psi_z_arr_corrected[i, :, :] = psi_z_arr_corrected[i - 1, :, :] + psi_z_arr[i, :, :]
         v_arr_corrected[i, :, :] = v_arr_corrected[i - 1, :, :] + v_arr[i, :, :]
@@ -77,24 +113,36 @@ for i in range(N+1):
         v_z_arr_corrected[i, :, :] = v_z_arr_corrected[i - 1, :, :] + v_z_arr[i, :, :]
 
 x = np.linspace(0, L, nx)
-#z = np.linspace(0, H, nz)
-
-vz_nl = lambda i: psi_x_arr_corrected[i, :, :] - psi_x_arr_corrected[0,:,:]
 X, Z = np.meshgrid(dist.local_grid(z_basis),x )
-fig,ax= plt.subplots(constrained_layout=True)
 order = 99
+
+vz_nl = lambda i: v_z_arr_corrected[i, :, :] - v_z_arr_corrected[0,:,:]
+zeta_zz_nl = lambda i: zeta_zz_arr_corrected[i, :, :] - zeta_zz_arr_corrected[0,:,:]
+
+
+fig,ax= plt.subplots(constrained_layout=True)
 CS = plt.contour(Z, X, psi_arr_corrected[order, :, :], 30, colors='k')
 plt.clabel(CS, CS.levels[1::5],inline=1,fontsize=5)
-#CM= plt.pcolormesh(Z, X, w_nl(order), shading='gouraud',cmap='PRGn')
-#CM= plt.pcolormesh(Z, X, psi_x_arr_corrected[order, :, :], shading='gouraud',cmap='PRGn')
-#ax.set_title('Gouraud Shading')
+CM= plt.pcolormesh(Z, X, A_v * zeta_zz_nl(order), shading='gouraud',cmap='PRGn')
 cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Velocity Field')
-
 plt.ylabel('vertical depth')
 plt.xlabel('periodic x-axis (0,2$\pi$)')
-plt.title('dw -velocity versus psi(m/s)')
-
-#plt.savefig('u_overlaid.png')
+plt.title('$A_z(\zeta_{zz} - \zeta_{zz}^0)$ Colormap')
+plt.savefig('Azeta_zz.png')
 plt.show()
 plt.close(fig)
+
+fig,ax= plt.subplots(constrained_layout=True)
+CS = plt.contour(Z, X, psi_arr_corrected[order, :, :], 30, colors='k')
+plt.clabel(CS, CS.levels[1::5],inline=1,fontsize=5)
+CM= plt.pcolormesh(Z, X, f* vz_nl(order), shading='gouraud',cmap='PRGn')
+cbar = fig.colorbar(CM)
+cbar.ax.set_ylabel('Velocity Field')
+plt.ylabel('vertical depth')
+plt.xlabel('periodic x-axis (0,2$\pi$)')
+plt.title('$f(v_z - v_z^0)$ Colormap')
+plt.savefig('fv_z.png')
+plt.show()
+plt.close(fig)
+
