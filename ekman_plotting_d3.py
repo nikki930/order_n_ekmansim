@@ -4,10 +4,7 @@ import time
 import h5py
 import math
 import matplotlib.pyplot as plt
-from dedalus import public as de
-import sys
-from scipy.fft import fft, fftfreq
-from contextlib import suppress
+import dedalus.public as d3
 
 N=100
 nx = 512  # fourier resolution
@@ -21,11 +18,10 @@ f = 1e-4  # coriolis param in 1/s
 L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
 
-# xcoord = de.Coordinate('x')
-# dist = de.Distributor(xcoord)
-x_basis = de.Fourier(xcoord, nx, interval=(0, L))
-z_basis = de.Chebyshev('z', nz, interval=(0, H))
-phi = de.domain.new_field(name='phi')
+zcoord = d3.Coordinate('z')
+dist = d3.Distributor(zcoord)
+z_basis = d3.Chebyshev(zcoord, size=nz, bounds=(0, H))
+
 
 psi_arr = np.zeros((N + 1, nx, nz))
 psi_arr_corrected = np.zeros((N + 1, nx, nz))
@@ -80,16 +76,17 @@ for i in range(N+1):
         v_x_arr_corrected[i, :, :] =v_x_arr_corrected[i - 1, :, :] + v_x_arr[i, :, :]
         v_z_arr_corrected[i, :, :] = v_z_arr_corrected[i - 1, :, :] + v_z_arr[i, :, :]
 
-# x = np.linspace(0, L, nx)
-z = np.linspace(0, H, nz)
+x = np.linspace(0, L, nx)
+#z = np.linspace(0, H, nz)
 
-X, Z = np.meshgrid(z, dist.local_grid(x_basis))
+vz_nl = lambda i: psi_x_arr_corrected[i, :, :] - psi_x_arr_corrected[0,:,:]
+X, Z = np.meshgrid(dist.local_grid(z_basis),x )
 fig,ax= plt.subplots(constrained_layout=True)
-order = 2
+order = 99
 CS = plt.contour(Z, X, psi_arr_corrected[order, :, :], 30, colors='k')
 plt.clabel(CS, CS.levels[1::5],inline=1,fontsize=5)
-CM= plt.pcolormesh(Z, X, psi_x_arr[order, :, :], shading='gouraud',cmap='PRGn')
-
+#CM= plt.pcolormesh(Z, X, w_nl(order), shading='gouraud',cmap='PRGn')
+#CM= plt.pcolormesh(Z, X, psi_x_arr_corrected[order, :, :], shading='gouraud',cmap='PRGn')
 #ax.set_title('Gouraud Shading')
 cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Velocity Field')
