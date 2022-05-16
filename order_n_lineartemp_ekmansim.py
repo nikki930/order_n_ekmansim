@@ -15,8 +15,8 @@ from dedalus.extras import plot_tools
 
 de.logging_setup.rootlogger.setLevel('ERROR')  # suppress logging msgs
 
-nx = 256  # fourier resolution
-nz = 512  # chebyshev resolution
+nx = 512 # fourier resolution
+nz = 128  # chebyshev resolution
 
 H = 10  # depth of water in meters
 h_e = 1 #ekman thickness
@@ -25,7 +25,7 @@ dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
 
-N = 50 # the order up to which the model runs
+N = 2 # the order up to which the model runs
 
 L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
@@ -61,7 +61,7 @@ domain = de.Domain([x_basis, z_basis], grid_dtype=np.float64)
 # declaring domain and variables for the problem
 problem = de.LBVP(domain, variables=['psi', 'u', 'v', 'vx',
                                      'vz', 'zeta',
-                                     'zetaz', 'zetax', 'psix', 'psiz'])
+                                     'zetaz', 'zetax', 'psix', 'psiz','zetazz'])
 
 # Initializing arrays to store values at each order (adding one to the order column to account for indexing limits)
 psi_arr = np.zeros((N + 1, nx, nz))
@@ -71,6 +71,7 @@ psi_z_arr = np.zeros((N + 1, nx, nz))
 zeta_arr = np.zeros((N + 1, nx, nz))
 zeta_x_arr = np.zeros((N + 1, nx, nz))
 zeta_z_arr = np.zeros((N + 1, nx, nz))
+zeta_zz_arr = np.zeros((N + 1, nx, nz))
 v_z_arr = np.zeros((N + 1, nx, nz))
 v_x_arr = np.zeros((N + 1, nx, nz))
 v_arr = np.zeros((N + 1, nx, nz))
@@ -185,9 +186,9 @@ class Solver_n:
 
         problem = de.LBVP(domain, variables=['psi', 'u', 'v', 'vx',
                                              'vz', 'zeta',
-                                             'zetaz', 'zetax', 'psix', 'psiz'])
+                                             'zetaz', 'zetax', 'psix', 'psiz','zetazz'])
 
-        a_visc = ((nx/2)**2)/(h_e**2)
+        a_visc = ((300/2)**2)/(h_e**2)
         # setting up all parameters
         problem.parameters['nu'] = self.nu  # viscosity
         problem.parameters['nu_h'] = a_visc * self.nu
@@ -206,13 +207,14 @@ class Solver_n:
         problem.add_equation("vz - dz(v) = 0")  # auxilary
         problem.add_equation("vx - dx(v) = 0")  # auxilary
         problem.add_equation("zetaz - dz(zeta)=0")  # auxilary
+        problem.add_equation("zetazz - dz(zetaz)=0")  # auxilary
         problem.add_equation("zetax - dx(zeta)=0")  # auxilary
         problem.add_equation("psiz - dz(psi)=0")  # auxilary
         problem.add_equation("psix - dx(psi)=0")  # auxilary
         problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")  # zeta = grad^2(psi)
 
         problem.add_equation("(dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  +f*u = Jac_psi_v")  # nu* grad^2 v  - fu=0
-        problem.add_equation("(dx(dx(zeta))*nu_h + dz(zetaz)*nu) - f*vz = Jac")  # nu* grad^2 zeta + fv_z=0
+        problem.add_equation("(dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = Jac")  # nu* grad^2 zeta + fv_z=0
 
         # for 0th order
         if self.n == 0:
@@ -245,6 +247,7 @@ class Solver_n:
         global zeta_arr
         global zeta_x_arr
         global zeta_z_arr
+        global zeta_zz_arr
         global v_x_arr
         global v_z_arr
         global v_arr
@@ -261,6 +264,7 @@ class Solver_n:
         out.add_task("psiz", layout='g', name='<psiz>')  # saving variables
         out.add_task("zetax", layout='g', name='<zetax>')  # saving variables
         out.add_task("zetaz", layout='g', name='<zetaz>')  # saving variables
+        out.add_task("zetazz", layout='g', name='<zetazz>')  # saving variables
         out.add_task("zeta", layout='g', name='<zeta>')  # saving variables
         out.add_task("u", layout='g', name='<u>')
         out.add_task("vx", layout='g', name='<vx>')
@@ -279,8 +283,9 @@ class Solver_n:
             psi_x_arr[self.n, :, :] = np.array(file['tasks']['<psix>'])  # d/dx (psi)
             psi_z_arr[self.n, :, :] = np.array(file['tasks']['<psiz>'])  # d/dz (psi)
             zeta_arr[self.n, :, :] = np.array(file['tasks']['<zeta>'])  # zeta
-            zeta_x_arr[self.n, :, :] = np.array(file['tasks']['<zetax>'])  # d/dx (zeta)
-            zeta_z_arr[self.n, :, :] = np.array(file['tasks']['<zetaz>'])  # d/dz (zeta)
+            zeta_x_arr[self.n, :, :] = np.array(file['tasks']['<zetax>'])
+            zeta_z_arr[self.n, :, :] = np.array(file['tasks']['<zetaz>'])
+            zeta_zz_arr[self.n, :, :] = np.array(file['tasks']['<zetazz>'])
             v_x_arr[self.n, :, :] = np.array(file['tasks']['<vx>'])  #
             v_z_arr[self.n, :, :] = np.array(file['tasks']['<vz>'])  #
             v_arr[self.n, :, :] = np.array(file['tasks']['<v>'])  #
@@ -309,13 +314,13 @@ class Solver_n:
 
             psi_arr_corrected[self.n, :, :] = psi_arr[0, :, :]
             # print(psi_arr[0,:,:])
-            CS1 = plt.contourf(Z, X, psi_arr_corrected[0, :, :], cmap='seismic')
+            CS1 = plt.contourf(Z, X, psi_arr_corrected[0, :, :], 25,cmap='seismic')
             cbar = fig.colorbar(CS1)
         else:
             psi_arr_corrected[self.n, :, :] = psi_arr_corrected[self.n - 1, :, :] + psi_arr[self.n, :, :]
             # print(psi_arr_corrected[1,:,:])
 
-            CS2 = plt.contourf(Z, X, psi_arr_corrected[self.n, :, :], cmap='seismic')
+            CS2 = plt.contourf(Z, X, psi_arr_corrected[self.n, :, :], 25, cmap='seismic')
             cbar = fig.colorbar(CS2)
 
         cbar.ax.set_ylabel('Streamfunction (kg/ms)')
@@ -326,6 +331,7 @@ class Solver_n:
                 r) + ' , $\\tau$=' + "{:.1e}".format(tau))
         plt.figtext(0.5, 0.01, txt, wrap=True, horizontalalignment='center', fontsize=12)
         plt.savefig(FileName)
+        plt.show()
         plt.close(fig)
 
         max_vals[self.n] = np.amax(psi_arr[self.n, :, :])
@@ -368,7 +374,7 @@ def main(n,R_e,R_g):
 #    Main Loop
 if __name__ == "__main__":
     #ekman rossby values run s.t. first one is the linearly converging state
-    ek_rossby_vals = np.array([1.4])
+    ek_rossby_vals = np.array([1.65])
     R_g = 0.1
     plt.figure(figsize=(10, 6))
     start_time = time.time()
