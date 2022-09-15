@@ -25,7 +25,7 @@ dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
 
-N = 2 # the order up to which the model runs
+N = 100 # the order up to which the model runs
 
 L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
@@ -77,7 +77,7 @@ v_x_arr = np.zeros((N + 1, nx, nz))
 v_arr = np.zeros((N + 1, nx, nz))
 max_vals = np.zeros(N + 1)
 
-
+run_folder =  'Re_big/'
 class Solver_n:
     def __init__(self, visc, coriolis, damp, wind, order):
 
@@ -213,12 +213,12 @@ class Solver_n:
         problem.add_equation("psix - dx(psi)=0")  # auxilary
         problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")  # zeta = grad^2(psi)
 
-        problem.add_equation("(dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  +f*u = Jac_psi_v")  # nu* grad^2 v  - fu=0
-        problem.add_equation("(dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = Jac")  # nu* grad^2 zeta + fv_z=0
+        problem.add_equation("(dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  -f*u = Jac_psi_v")  # nu* grad^2 v  - fu=0
+        problem.add_equation("(dx(dx(zeta))*nu_h + zetazz*nu) + f*vz = Jac")  # nu* grad^2 zeta + fv_z=0
 
         # for 0th order
         if self.n == 0:
-            problem.add_bc("vz(z='right') = (A/nu)*sin(x*k)")  # wind forcing on 0th order boundary condition
+            problem.add_bc("vz(z='right') = (A/nu)*cos(x*k+ 3.14159/2)")  # wind forcing on 0th order boundary condition
         else:
             problem.add_bc("vz(z='right') = 0")  # no wind forcing for higher orders
             #print('bc')
@@ -252,8 +252,8 @@ class Solver_n:
         global v_z_arr
         global v_arr
 
-        folder_n = 'out_' + str(self.n) + '_n'
-
+        folder_n = run_folder + 'out_' + str(self.n) + '_n'
+        folder_n_sub = 'out_' + str(self.n) + '_n'
 
         out = solver.evaluator.add_file_handler(folder_n)  # storing output into file with specified name
         out.add_system(solver.state)
@@ -264,7 +264,8 @@ class Solver_n:
         out.add_task("psiz", layout='g', name='<psiz>')  # saving variables
         out.add_task("zetax", layout='g', name='<zetax>')  # saving variables
         out.add_task("zetaz", layout='g', name='<zetaz>')  # saving variables
-        out.add_task("zetazz", layout='g', name='<zetazz>')  # saving variables
+        out.add_task("zetazz", layout='g', name='<zetazz>')
+        out.add_task("zetaxx", layout='g', name='<zetaxx>')# saving variables
         out.add_task("zeta", layout='g', name='<zeta>')  # saving variables
         out.add_task("u", layout='g', name='<u>')
         out.add_task("vx", layout='g', name='<vx>')
@@ -275,7 +276,7 @@ class Solver_n:
         # evaluates the tasks declared above:
         solver.evaluator.evaluate_handlers([out], world_time=0, wall_time=0, sim_time=0, timestep=0, iteration=0)
 
-        with h5py.File(folder_n + '/' + folder_n + '_s1/' + folder_n + '_s1_p0.h5',
+        with h5py.File(folder_n + '/' + folder_n_sub + '_s1/' + folder_n_sub + '_s1_p0.h5',
                        mode='r') as file:  # reading file
 
             psi_arr[self.n, :, :] = np.array(file['tasks']['<psi>'])  # psi
@@ -284,6 +285,7 @@ class Solver_n:
             psi_z_arr[self.n, :, :] = np.array(file['tasks']['<psiz>'])  # d/dz (psi)
             zeta_arr[self.n, :, :] = np.array(file['tasks']['<zeta>'])  # zeta
             zeta_x_arr[self.n, :, :] = np.array(file['tasks']['<zetax>'])
+            zeta_xx_arr[self.n, :, :] = np.array(file['tasks']['<zetaxx>'])
             zeta_z_arr[self.n, :, :] = np.array(file['tasks']['<zetaz>'])
             zeta_zz_arr[self.n, :, :] = np.array(file['tasks']['<zetazz>'])
             v_x_arr[self.n, :, :] = np.array(file['tasks']['<vx>'])  #
@@ -331,7 +333,6 @@ class Solver_n:
                 r) + ' , $\\tau$=' + "{:.1e}".format(tau))
         plt.figtext(0.5, 0.01, txt, wrap=True, horizontalalignment='center', fontsize=12)
         plt.savefig(FileName)
-        plt.show()
         plt.close(fig)
 
         max_vals[self.n] = np.amax(psi_arr[self.n, :, :])
@@ -348,24 +349,24 @@ _______________________________________________MAIN LOOP________________________
 
 
 def main(n,R_e,R_g):
-    folder0 =  'out_0_n'
 
-    folder = 'out_' + str(n) + '_n'
+
+
     figname = 'psi_o' + str(n) + '_n'
 
     if n==0: # Run to solve for N = 0:
         #  nu,f,r,tau = Rossby(R_e,R_g)
         s = Solver_n(Rossby(R_e,R_g)[0],Rossby(R_e,R_g)[1],Rossby(R_e,R_g)[2],Rossby(R_e,R_g)[3], 0)
         s.eqns('psi')
-        s.analysis(folder)
-        s.plotting(folder, figname)
+        s.analysis(run_folder)
+        s.plotting(run_folder, run_folder + figname)
 
     else:
 
         s = Solver_n(Rossby(R_e,R_g)[0],Rossby(R_e,R_g)[1],Rossby(R_e,R_g)[2],Rossby(R_e,R_g)[3], n)
         s.eqns('psi')
-        s.analysis(folder)
-        s.plotting(folder, figname)
+        s.analysis(run_folder)
+        s.plotting(run_folder, run_folder + figname)
 
 
 
@@ -374,7 +375,7 @@ def main(n,R_e,R_g):
 #    Main Loop
 if __name__ == "__main__":
     #ekman rossby values run s.t. first one is the linearly converging state
-    ek_rossby_vals = np.array([1.65])
+    ek_rossby_vals = np.array([1.75])
     R_g = 0.1
     plt.figure(figsize=(10, 6))
     start_time = time.time()
@@ -440,6 +441,16 @@ if __name__ == "__main__":
     plt.title('Change in order of magnitude of $\psi_{correction}$ for $R_G$ = ' + str(
             R_g) + ')')
     plt.legend()
-    plt.savefig('psimax_order')
+    plt.savefig(run_folder + 'psimax_order')
 
     print("Total Runtime: --- %s seconds ---" % (time.time() - start_time))
+
+    R_e = ek_rossby_vals[0]
+    lines = ["PARAMETERS FOR MODEL RUN","(R_e, R_g) = (" + str(R_e) + ', ' + str(R_g) + ')',"nu = " + str(Rossby(R_e,R_g)[0]), "f = " + str(Rossby(R_e,R_g)[1]), "r = " +
+             str(Rossby(R_e,R_g)[2]), "tau = " + str(Rossby(R_e,R_g)[3]),
+             "L = " + str(L), "H = " +str(H),"h_e = "+ str(h_e), "nx = " + str(nx), "nz = " + str(nz), "N = " + str(N)]
+
+    with open(run_folder + 'read_me.txt', 'w') as f:
+        for line in lines:
+            f.write(line)
+            f.write('\n')
