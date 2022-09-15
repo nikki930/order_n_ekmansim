@@ -70,6 +70,7 @@ psi_x_arr = np.zeros((N + 1, nx, nz))
 psi_z_arr = np.zeros((N + 1, nx, nz))
 zeta_arr = np.zeros((N + 1, nx, nz))
 zeta_x_arr = np.zeros((N + 1, nx, nz))
+zeta_xx_arr = np.zeros((N + 1, nx, nz))
 zeta_z_arr = np.zeros((N + 1, nx, nz))
 zeta_zz_arr = np.zeros((N + 1, nx, nz))
 v_z_arr = np.zeros((N + 1, nx, nz))
@@ -265,7 +266,7 @@ class Solver_n:
         out.add_task("zetax", layout='g', name='<zetax>')  # saving variables
         out.add_task("zetaz", layout='g', name='<zetaz>')  # saving variables
         out.add_task("zetazz", layout='g', name='<zetazz>')
-        out.add_task("zetaxx", layout='g', name='<zetaxx>')# saving variables
+        out.add_task("dx(zetax)", layout='g', name='<zetaxx>')# saving variables
         out.add_task("zeta", layout='g', name='<zeta>')  # saving variables
         out.add_task("u", layout='g', name='<u>')
         out.add_task("vx", layout='g', name='<vx>')
