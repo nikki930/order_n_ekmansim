@@ -45,7 +45,8 @@ v_z_arr = np.zeros((N + 1, nx, nz))
 v_z_arr_corrected = np.zeros((N + 1, nx, nz))
 u_arr= np.zeros((N + 1, nx, nz))
 u_arr_corrected= np.zeros((N + 1, nx, nz))
-
+damp_arr = np.zeros((N + 1, nx, nz))
+damp_arr_corrected= np.zeros((N + 1, nx, nz))
 # folder_n = run_folder + 'out_' + str(i) + '_n'
 # folder_n_sub = 'out_' + str(self.n) + '_n'
 ########################################################################################################################
@@ -60,6 +61,7 @@ for i in range(N+1):
         v_z_arr[i, :, :] = np.array(file['tasks']['<vz>'])  #
         J_v_arr[i, :, :] = np.array(file['tasks']['<J_psi_v>'])
         J_zeta_arr[i, :, :] = np.array(file['tasks']['<J>'])
+        damp_arr[i, :, :] = np.array(file['tasks']['<damping>'])
     if i == 0:
         u_arr_corrected[i, :, :] = u_arr[0, :, :]
         psi_arr_corrected[i, :, :] = psi_arr[0, :, :]
@@ -67,6 +69,7 @@ for i in range(N+1):
         v_z_arr[i, :, :] = v_z_arr[0,:,:]
         J_v_arr_corrected[i, :, :] = J_v_arr[0, :, :]
         J_zeta_arr_corrected[i, :, :] = J_zeta_arr[0, :, :]
+        damp_arr_corrected[i, :, :] = damp_arr[0, :, :]
     else:
         u_arr_corrected[i, :, :] = u_arr_corrected[i - 1, :, :] + u_arr[i,:,:]
         psi_arr_corrected[i, :, :] = psi_arr_corrected[i - 1, :, :] + psi_arr[i, :, :]
@@ -74,7 +77,7 @@ for i in range(N+1):
         v_z_arr_corrected[i, :, :] = v_z_arr_corrected[i - 1, :, :] + v_z_arr[i, :, :]
         J_v_arr_corrected[i, :, :] = J_v_arr_corrected[i-1, :, :] + J_v_arr[i, :, :]
         J_zeta_arr_corrected[i, :, :] = J_zeta_arr_corrected[i-1, :, :] + J_zeta_arr[i, :, :]
-
+        damp_arr_corrected[i, :, :] = damp_arr_corrected[i - 1, :, :] + damp_arr[i, :, :]
 x = np.linspace(0, L, nx)
 z = np.linspace(0, H, nz)
 
@@ -82,9 +85,12 @@ x_basis = d3.Fourier('x', nx, interval=(0, L))
 z_basis = d3.Chebyshev('z', nz, interval=(0, H))
 domain = d3.Domain([x_basis, z_basis], grid_dtype=np.float64)
 
-problem = d3.LBVP(domain, variables=['psi','psi_z' 'v_A',
-                                             'v_Az','v_Azz', 'v_B',
-                                             'v_Bz','v_Bzz'])
+#problem = d3.LBVP(domain, variables=['v_A','v_Az', 'v_B',
+                                             # 'v_Bz','psi_A', 'zeta_A',
+                                             # 'zeta_Az', 'psi_Az','psi_B', 'zeta_B',
+                                             # 'zeta_Bz', 'psi_Bz'])
+problem = d3.LBVP(domain, variables=['v_A','v_Az', 'v_B','v_Bz'])
+
 a_visc = ((300 / 2) ** 2) / (1** 2)
 # setting up all parameters
 problem.parameters['nu'] = 5*1e-5  # viscosity
@@ -104,35 +110,56 @@ u_temp = domain.new_field()
 gslices = domain.dist.grid_layout.slices(scales=1)
 u_temp['g'] = u_arr_corrected[100,:,:][gslices[0]]-u_arr_corrected[0,:,:][gslices[0]]
 
+vz_temp = domain.new_field()
+gslices = domain.dist.grid_layout.slices(scales=1)
+vz_temp['g'] = v_z_arr_corrected[100,:,:][gslices[0]]-v_z_arr_corrected[0,:,:][gslices[0]]
+
+damping_temp = domain.new_field()
+gslices = domain.dist.grid_layout.slices(scales=1)
+damping_temp['g'] = damp_arr_corrected[100,:,:][gslices[0]]-damp_arr_corrected[0,:,:][gslices[0]]
+
 #problem.parameters['Jac_v'] = Jac_temp_v
 problem.parameters['Jac_v'] = Jac_temp_v
+problem.parameters['Jac_zeta'] = Jac_temp_zeta
 problem.parameters['u'] = u_temp
-
+problem.parameters['vz'] = vz_temp
+problem.parameters['damping'] = damping_temp
 
 problem.add_equation("v_Az - dz(v_A)=0")  # auxilary
-problem.add_equation("v_Azz - dz(v_Az)=0")  # auxilary
-problem.add_equation("psi_Az - dz(psi_A)=0")  # auxilary
+problem.add_equation("v_Bz - dz(v_Bz)=0")  # auxilary
 
-problem.add_equation("zeta_Bz - dz(zeta_B)=0")  # auxilary
-problem.add_equation("zeta_Bzz - dz(zeta_Bz)=0")  # auxilary
-problem.add_equation("psi_Bz - dz(psi_B)=0")  # auxilary
+problem.add_equation("(dx(dx(v_A))*nu_h + dz(v_Az)*nu) =  f*u + damping")  # nu* grad^2 zeta + fv_z=0
+problem.add_equation("(dx(dx(v_B))*nu_h + dz(v_Bz)*nu) = Jac_v+ damping")
 
+# problem.add_equation("zeta_Az - dz(zeta_A)=0")  # auxilary
+# problem.add_equation("psi_Az - dz(psi_A)=0")  # auxilary
+# problem.add_equation("zeta_Bz - dz(zeta_B)=0")  # auxilary
+# problem.add_equation("psi_Bz - dz(psi_B)=0")  # auxilary
+#
+#
+# problem.add_equation("zeta_A - dz(psi_Az) - dx(dx(psi_A))=0")
+# problem.add_equation("zeta_B - dz(psi_Bz) - dx(dx(psi_B))=0")
+#
+# problem.add_equation("(dx(dx(zeta_A))*nu_h + dz(zeta_Az)*nu) = - f*vz ")  # nu* grad^2 zeta + fv_z=0
+# problem.add_equation("(dx(dx(zeta_B))*nu_h + dz(zeta_Bz)*nu) = Jac_zeta")
 
-problem.add_equation("zeta - dz(psi_z) - dx(dx(psi))=0")
-
-problem.add_equation("(dx(dx(v_A))*nu_h + v_Azz*nu) =  f*u")  # nu* grad^2 zeta + fv_z=0
-problem.add_equation("(dx(dx(v_B))*nu_h + v_Bzz*nu) = Jac_v")
-
-
-problem.add_bc("psi(z='left') = 0")
-problem.add_bc("psi(z='right') = 0")
-problem.add_bc("dz(psi_z)(z='left') = 0")
-problem.add_bc("dz(psi_z)(z='left') = 0")
+# problem.add_bc("psi_A(z='left') = 0")
+# problem.add_bc("psi_A(z='right') = 0")
+# problem.add_bc("psi_B(z='left') = 0")
+# problem.add_bc("psi_B(z='right') = 0")
+# problem.add_bc("dz(psi_Az)(z='left') = 0")
+# problem.add_bc("dz(psi_Az)(z='right') = 0")
+# problem.add_bc("dz(psi_Bz)(z='left') = 0")
+# problem.add_bc("dz(psi_Bz)(z='right') = 0")
+problem.add_bc("v_Az(z='left') = 0")
+problem.add_bc("v_Bz(z='left') = 0")
+problem.add_bc("v_A(z='right') = 0")
+problem.add_bc("v_B(z='right') = 0")
 
 
 solver = problem.build_solver()
 solver.solve()
-state = solver.state['psi_A']
+state = solver.state['v_A']
 
 #output:
 folder = 'Forcing_Analysis/'
@@ -142,8 +169,8 @@ folder_n_sub = 'out'
 out = solver.evaluator.add_file_handler(folder_n)  # storing output into file with specified name
 out.add_system(solver.state)
 
-out.add_task("psi_A", layout='g', name='<psi_A>')  # saving variables
-out.add_task("zeta_A", layout='g', name='<zeta_A>')  # saving variables
-out.add_task("psi_B", layout='g', name='<psi_B>')  # saving variables
-out.add_task("zeta_B", layout='g', name='<zeta_B>')  # saving variables
+out.add_task("v_A", layout='g', name='<v_A>')  # saving variables
+out.add_task("v_B", layout='g', name='<v_B>')  # saving variables
+out.add_task("v_Az", layout='g', name='<v_Az>')  # saving variables
+out.add_task("v_Bz", layout='g', name='<v_Bz>')  # saving variables
 solver.evaluator.evaluate_handlers([out], world_time=0, wall_time=0, sim_time=0, timestep=0, iteration=0)

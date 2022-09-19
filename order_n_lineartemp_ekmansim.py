@@ -274,6 +274,7 @@ class Solver_n:
         out.add_task("v", layout='g', name='<v>')
         out.add_task("psix* zetaz - psiz * zetax", layout='g', name='<J>')
         out.add_task("u*vx  + psix*vz", layout='g', name='<J_psi_v>')
+        out.add_task("r*(1/H)*integ(v,'z')", layout='g', name='<damping>')
         # evaluates the tasks declared above:
         solver.evaluator.evaluate_handlers([out], world_time=0, wall_time=0, sim_time=0, timestep=0, iteration=0)
 
