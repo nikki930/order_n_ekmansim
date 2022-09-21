@@ -217,23 +217,23 @@ plt.close(fig)
 
 #______________________________________V FORCING TEST:____________________________________________________
 
-psi_A_arr_test=np.zeros((nx,nz))
-zeta_A_arr_test=np.zeros((nx,nz))
-psi_B_arr_test=np.zeros((nx,nz))
-zeta_B_arr_test=np.zeros((nx,nz))
+v_A_arr_test=np.zeros((nx,nz))
+v_Az_arr_test=np.zeros((nx,nz))
+v_B_arr_test=np.zeros((nx,nz))
+v_Bz_arr_test=np.zeros((nx,nz))
 
 folder = 'Forcing_Analysis/'
-folder_n = 'Forcing_Analysis/' + 'out'
-folder_n_sub = 'out'
+folder_n = folder+'v_out'
+folder_n_sub = 'v_out'
 
 #plotting
 with h5py.File(folder_n + '/' + folder_n_sub + '_s1/' + folder_n_sub + '_s1_p0.h5',
                mode='r') as file:  # reading file
 
-    psi_A_arr_test[:, :] = np.array(file['tasks']['<psi_A>']) # psi
-    zeta_A_arr_test[:, :] = np.array(file['tasks']['<zeta_A>'])  # zeta
-    psi_B_arr_test[:, :] = np.array(file['tasks']['<psi_B>'])  # psi
-    zeta_B_arr_test[:, :] = np.array(file['tasks']['<zeta_B>'])  # zeta
+    v_A_arr_test[:, :] = np.array(file['tasks']['<v_A>'])
+    v_Az_arr_test[:, :] = np.array(file['tasks']['<v_Az>'])
+    v_B_arr_test[:, :] = np.array(file['tasks']['<v_B>'])
+    v_Bz_arr_test[:, :] = np.array(file['tasks']['<v_Bz>'])
 
 
 zcoord = d3.Coordinate('z')
@@ -243,55 +243,55 @@ x = np.linspace(0, L, nx)
 X, Z = np.meshgrid(dist.local_grid(z_basis),x )
 
 fig,ax= plt.subplots(constrained_layout=True)
-CS = plt.contour(Z, X, psi_A_arr_test, 30,cmap='PRGn',vmin=-3e-3,vmax=3e-3)
+CS = plt.contour(Z, X, zeta_A_arr_test, 30, colors='k')
 plt.clabel(CS,inline=1,fontsize=5)
-#CM= plt.pcolormesh(Z, X, psi_A_arr_test, shading='gouraud',cmap='PRGn',vmin=-3e-3,vmax=3e-3)
+CM= plt.pcolormesh(Z, X, v_A_arr_test, shading='gouraud',cmap='PRGn',vmin=-8e-3,vmax=8e-3)
 #CM= plt.pcolormesh(Z, X, psi_A_arr_test, shading='gouraud',cmap='PRGn',vmin=-9.6e-3,vmax=9.6e-3)
-cbar = fig.colorbar(CS)
+cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Streamfunction (kg/ms)')
 plt.ylabel('vertical depth')
 plt.xlabel('periodic x-axis (0,2$\pi$)')
-plt.title('$\psi_A$ (forced by $-fv_z$)')
-plt.savefig(folder + 'psi_A.png')
+plt.title('$v_A$ (forced by $fu$) with $\zeta_A$ contours')
+plt.savefig(folder + 'v_A.png')
 plt.close(fig)
 
 fig,ax= plt.subplots(constrained_layout=True)
-CS = plt.contour(Z, X, psi_B_arr_test, 30,cmap='PRGn',vmin=-3e-3,vmax=3e-3)
+CS = plt.contour(Z, X, zeta_B_arr_test,30, colors='k')
 plt.clabel(CS,inline=1,fontsize=5)
-#CM= plt.pcolormesh(Z, X, psi_B_arr_test, shading='gouraud',cmap='PRGn',vmin=-3e-3,vmax=3e-3)
+CM= plt.pcolormesh(Z, X, v_B_arr_test, shading='gouraud',cmap='PRGn',vmin=-8e-3,vmax=8e-3)
 #CM= plt.pcolormesh(Z, X, psi_B_arr_test, shading='gouraud',cmap='PRGn', vmin=-9.6e-3,vmax=9.6e-3)
-cbar = fig.colorbar(CS)
+cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Streamfunction (kg/ms)')
 plt.ylabel('vertical depth')
 plt.xlabel('periodic x-axis (0,2$\pi$)')
-plt.title('$\psi_B$ (forced by $J(\psi,\zeta)$)')
-plt.savefig(folder + 'psi_B.png')
+plt.title('$v_B$ (forced by $J(psi,v)$) with $\zeta_B$ contours')
+plt.savefig(folder + 'v_B.png')
 plt.close(fig)
 
 fig,ax= plt.subplots(constrained_layout=True)
-CS = plt.contour(Z, X, psi_A_arr_test, 30, colors='k',vmin=-1.1e-3,vmax=1.1e-3)
+CS = plt.contour(Z, X, zeta_A_arr_test, 30, colors='k')
 plt.clabel(CS, CS.levels[1::5],inline=1,fontsize=5)
-CM= plt.pcolormesh(Z, X, zeta_A_arr_test, shading='gouraud',cmap='PRGn', vmin=-1.1e-3,vmax=1.1e-3)
+CM= plt.pcolormesh(Z, X, v_Az_arr_test, shading='gouraud',cmap='PRGn')
 #CM= plt.pcolormesh(Z, X, zeta_A_arr_test, shading='gouraud',cmap='PRGn', vmin=-2.4e-3,vmax=2.4e-3)
 cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Vorticity ($s^{-1}$)')
 plt.ylabel('vertical depth')
 plt.xlabel('periodic x-axis (0,2$\pi$)')
-plt.title('$\zeta_A$ (forced by $-fv_z$)')
-plt.savefig(folder + 'zeta_A.png')
+plt.title('$vz_A$ (forced by $fu$) with $\zeta_A$ contours')
+plt.savefig(folder + 'v_Az.png')
 plt.close(fig)
 
 fig,ax= plt.subplots(constrained_layout=True)
-CS = plt.contour(Z, X, psi_B_arr_test, 30, colors='k',vmin=-1.1e-3,vmax=1.1e-3)
+CS = plt.contour(Z, X, zeta_B_arr_test, 30, colors='k')
 plt.clabel(CS, CS.levels[1::5],inline=1,fontsize=5)
 #CM= plt.pcolormesh(Z, X, zeta_B_arr_test, shading='gouraud',cmap='PRGn', vmin=-2.4e-3,vmax=2.4e-3)
-CM= plt.pcolormesh(Z, X, zeta_B_arr_test, shading='gouraud',cmap='PRGn', vmin=-1.1e-3,vmax=1.1e-3)
+CM= plt.pcolormesh(Z, X, v_Bz_arr_test, shading='gouraud',cmap='PRGn')
 cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Vorticity ($s^{-1}$)')
 plt.ylabel('vertical depth')
 plt.xlabel('periodic x-axis (0,2$\pi$)')
-plt.title('$\zeta_B$ (forced by $J(\psi,\zeta)$)')
-plt.savefig(folder + 'zeta_B.png')
+plt.title('$vz_B$ (forced by $J(\psi,v)$) with $\zeta_B$ contours')
+plt.savefig(folder + 'v_Bz.png')
 plt.close(fig)
 
 
