@@ -47,8 +47,7 @@ u_arr= np.zeros((N + 1, nx, nz))
 u_arr_corrected= np.zeros((N + 1, nx, nz))
 damp_arr = np.zeros((N + 1, nx, nz))
 damp_arr_corrected= np.zeros((N + 1, nx, nz))
-# folder_n = run_folder + 'out_' + str(i) + '_n'
-# folder_n_sub = 'out_' + str(self.n) + '_n'
+
 ########################################################################################################################
 for i in range(N+1):
     folder_n = run_folder +'out_' + str(i) + '_n'
@@ -78,6 +77,7 @@ for i in range(N+1):
         J_v_arr_corrected[i, :, :] = J_v_arr_corrected[i-1, :, :] + J_v_arr[i, :, :]
         J_zeta_arr_corrected[i, :, :] = J_zeta_arr_corrected[i-1, :, :] + J_zeta_arr[i, :, :]
         damp_arr_corrected[i, :, :] = damp_arr_corrected[i - 1, :, :] + damp_arr[i, :, :]
+
 x = np.linspace(0, L, nx)
 z = np.linspace(0, H, nz)
 
@@ -89,7 +89,7 @@ domain = d3.Domain([x_basis, z_basis], grid_dtype=np.float64)
                                              # 'v_Bz','psi_A', 'zeta_A',
                                              # 'zeta_Az', 'psi_Az','psi_B', 'zeta_B',
                                              # 'zeta_Bz', 'psi_Bz'])
-problem = d3.LBVP(domain, variables=['v_A','v_Az', 'v_B','v_Bz'])
+problem = d3.LBVP(domain, variables=['v_A', 'v_Az', 'v_B', 'v_Bz'])
 
 a_visc = ((300 / 2) ** 2) / (1** 2)
 # setting up all parameters
@@ -110,60 +110,37 @@ u_temp = domain.new_field()
 gslices = domain.dist.grid_layout.slices(scales=1)
 u_temp['g'] = u_arr_corrected[100,:,:][gslices[0]]-u_arr_corrected[0,:,:][gslices[0]]
 
-vz_temp = domain.new_field()
-gslices = domain.dist.grid_layout.slices(scales=1)
-vz_temp['g'] = v_z_arr_corrected[100,:,:][gslices[0]]-v_z_arr_corrected[0,:,:][gslices[0]]
-
 damping_temp = domain.new_field()
 gslices = domain.dist.grid_layout.slices(scales=1)
 damping_temp['g'] = damp_arr_corrected[100,:,:][gslices[0]]-damp_arr_corrected[0,:,:][gslices[0]]
 
-#problem.parameters['Jac_v'] = Jac_temp_v
+
 problem.parameters['Jac_v'] = Jac_temp_v
 problem.parameters['Jac_zeta'] = Jac_temp_zeta
 problem.parameters['u'] = u_temp
-problem.parameters['vz'] = vz_temp
 problem.parameters['damping'] = damping_temp
 
 problem.add_equation("v_Az - dz(v_A)=0")  # auxilary
-problem.add_equation("v_Bz - dz(v_Bz)=0")  # auxilary
+problem.add_equation("v_Bz - dz(v_B)=0")  # auxilary
 
-problem.add_equation("(dx(dx(v_A))*nu_h + dz(v_Az)*nu) =  f*u + damping")  # nu* grad^2 zeta + fv_z=0
-problem.add_equation("(dx(dx(v_B))*nu_h + dz(v_Bz)*nu) = Jac_v+ damping")
+problem.add_equation("(dx(dx(v_A))*nu_h + dz(v_Az)*nu) =  f*u ")  # nu* grad^2 zeta + fv_z=0
+problem.add_equation("(dx(dx(v_B))*nu_h + dz(v_Bz)*nu) = Jac_v ")
+problem.add_equation("integ(v_A,'z')=0")
+problem.add_equation("integ(v_B,'z')=0")
 
-# problem.add_equation("zeta_Az - dz(zeta_A)=0")  # auxilary
-# problem.add_equation("psi_Az - dz(psi_A)=0")  # auxilary
-# problem.add_equation("zeta_Bz - dz(zeta_B)=0")  # auxilary
-# problem.add_equation("psi_Bz - dz(psi_B)=0")  # auxilary
-#
-#
-# problem.add_equation("zeta_A - dz(psi_Az) - dx(dx(psi_A))=0")
-# problem.add_equation("zeta_B - dz(psi_Bz) - dx(dx(psi_B))=0")
-#
-# problem.add_equation("(dx(dx(zeta_A))*nu_h + dz(zeta_Az)*nu) = - f*vz ")  # nu* grad^2 zeta + fv_z=0
-# problem.add_equation("(dx(dx(zeta_B))*nu_h + dz(zeta_Bz)*nu) = Jac_zeta")
 
-# problem.add_bc("psi_A(z='left') = 0")
-# problem.add_bc("psi_A(z='right') = 0")
-# problem.add_bc("psi_B(z='left') = 0")
-# problem.add_bc("psi_B(z='right') = 0")
-# problem.add_bc("dz(psi_Az)(z='left') = 0")
-# problem.add_bc("dz(psi_Az)(z='right') = 0")
-# problem.add_bc("dz(psi_Bz)(z='left') = 0")
-# problem.add_bc("dz(psi_Bz)(z='right') = 0")
 problem.add_bc("v_Az(z='left') = 0")
 problem.add_bc("v_Bz(z='left') = 0")
-problem.add_bc("v_A(z='right') = 0")
-problem.add_bc("v_B(z='right') = 0")
+
 
 
 solver = problem.build_solver()
 solver.solve()
-state = solver.state['v_A']
+state = solver.state['v_Az']
 
 #output:
 folder = 'Forcing_Analysis/'
-folder_n = 'Forcing_Analysis/' + 'out'
+folder_n = folder + 'v_out'
 folder_n_sub = 'out'
 
 out = solver.evaluator.add_file_handler(folder_n)  # storing output into file with specified name
