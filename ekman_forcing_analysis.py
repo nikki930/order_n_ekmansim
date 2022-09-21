@@ -101,8 +101,8 @@ vz_temp = domain.new_field()
 gslices = domain.dist.grid_layout.slices(scales=1)
 vz_temp['g'] = v_z_arr_corrected[100,:,:][gslices[0]]-v_z_arr_corrected[0,:,:][gslices[0]]
 
-#problem.parameters['Jac_v'] = Jac_temp_v
 problem.parameters['Jac_v'] = Jac_temp_v
+problem.parameters['Jac_zeta'] = Jac_temp_zeta
 problem.parameters['vz'] = vz_temp
 
 
@@ -119,7 +119,7 @@ problem.add_equation("zeta_A - dz(psi_Az) - dx(dx(psi_A))=0")
 problem.add_equation("zeta_B - dz(psi_Bz) - dx(dx(psi_B))=0")
 
 problem.add_equation("(dx(dx(zeta_A))*nu_h + zeta_Azz*nu) = - f*vz")  # nu* grad^2 zeta + fv_z=0
-problem.add_equation("(dx(dx(zeta_B))*nu_h + zeta_Bzz*nu) = Jac_v")
+problem.add_equation("(dx(dx(zeta_B))*nu_h + zeta_Bzz*nu) = Jac_zeta")
 
 
 problem.add_bc("psi_A(z='left') = 0")
