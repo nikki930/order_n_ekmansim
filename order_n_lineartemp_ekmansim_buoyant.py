@@ -89,7 +89,7 @@ b_x_arr = np.zeros((N + 1, nx, nz))
 b_arr = np.zeros((N + 1, nx, nz))
 max_vals = np.zeros(N + 1)
 
-run_folder =  'Re_big/'
+run_folder =  'Re_big/buoyant/'
 class Solver_n:
     def __init__(self, visc, coriolis, damp, wind, order):
 
@@ -145,7 +145,7 @@ class Solver_n:
         global psi_arr
 
         if n_solve==0:
-            return J1,J2
+            return J1,J2,J3
         # elif n==1:
         #     # loading Jacobians (nonlinear terms) from the 0th order analysis tasks
         #     with h5py.File(folder0 + '/' + folder0 + '_s1/' + folder0 + '_s1_p0.h5', mode='r') as file:  # reading file
@@ -219,6 +219,7 @@ class Solver_n:
 
         problem.parameters['Jac'] = self.Jn(self.n)[0]  # self.j = self.j2 = 0 for 0th order solution
         problem.parameters['Jac_psi_v'] = self.Jn(self.n)[1]
+        problem.parameters['Jac_psi_b'] = self.Jn(self.n)[2]
 
         # axuliary equations:
         problem.add_equation("bz - dz(b) = 0")# auxilary
@@ -233,9 +234,10 @@ class Solver_n:
         problem.add_equation("psix - dx(psi)=0")  # auxilary
         problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")  # zeta = grad^2(psi)
 
-        problem.add_equation("(dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  -f*u = -psix*(N**2) + Jac_psi_v")  # nu* grad^2 v  - fu=0
+        problem.add_equation("(dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  -f*u  +psix*(N**2) = Jac_psi_v")  # nu* grad^2 v  - fu=0
         problem.add_equation("(dx(dx(zeta))*nu_h + zetazz*nu) + f*vz - dx(b)= Jac") # nu* grad^2 zeta + fv_z=0
-        problem.add_equation("(dx(dx(b))*nu_h + dz(bz)*nu) + (N**2)*psi_x= Jac_psi_b")
+        problem.add_equation("(dx(dx(b))*nu_h + dz(bz)*nu) + (N**2)*psix= Jac_psi_b")
+        problem.add_equation("integ(b,'z')=0")
 
         # for 0th order
         if self.n == 0:
