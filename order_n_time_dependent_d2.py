@@ -157,6 +157,8 @@ solver.stop_sim_time = stop_sim_time
 # Analysis
 snapshots = solver.evaluator.add_file_handler('snapshots', sim_dt=0.25, max_writes=50, mode=fh_mode)
 snapshots.add_system(solver.state)
+snapshots.add_task("psi", layout='g', name='<psi>')  # saving variables
+solver.evaluator.evaluate_handlers([snapshots], world_time=0, wall_time=0, sim_time=solver.sim_time, timestep=dt, iteration=stop_sim_time/dt)
 
 # CFL
 CFL = flow_tools.CFL(solver, initial_dt=dt, cadence=10, safety=0.5,

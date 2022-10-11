@@ -1,9 +1,9 @@
 """
 Plot planes from joint analysis files.
 Usage:
-    plot_slices.py <files>... [--output=/aos/home/nrahnamaei/PycharmProjects/order_n_ekmansim/]
+    plot_slices.py <files>...
 Options:
-    --output=[--output=/aos/home/nrahnamaei/PycharmProjects/order_n_ekmansim/]  Output directory [default: ./frames]
+    --output= aos/home/nrahnamaei/PycharmProjects/order_n_ekmansim/  Output directory [default: ./frames]
 """
 
 import h5py
@@ -13,7 +13,6 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 plt.ioff()
 from dedalus.extras import plot_tools
-
 
 def main(filename, start, count, output):
     """Save plot of specified tasks for given range of analysis writes."""
@@ -25,8 +24,8 @@ def main(filename, start, count, output):
     title_func = lambda sim_time: 't = {:.3f}'.format(sim_time)
     savename_func = lambda write: 'write_{:06}.png'.format(write)
     # Layout
-    nrows, ncols = 4, 1
-    image = plot_tools.Box(4, 1)
+    nrows, ncols = 1, 1
+    image = plot_tools.Box(1, 1)
     pad = plot_tools.Frame(0.2, 0.2, 0.1, 0.1)
     margin = plot_tools.Frame(0.3, 0.2, 0.1, 0.1)
 
@@ -35,7 +34,7 @@ def main(filename, start, count, output):
     fig = mfig.figure
     # Plot writes
     with h5py.File(filename, mode='r') as file:
-        for index in range(start, start+count):
+        for index in range(start, start + 2):
             for n, task in enumerate(tasks):
                 # Build subfigure axes
                 i, j = divmod(n, ncols)
@@ -65,12 +64,10 @@ if __name__ == "__main__":
 
     args = docopt(__doc__)
 
-    #output_path = pathlib.Path(args['--output']).absolute()
-    output_path="/aos/home/nrahnamaei/PycharmProjects/order_n_ekmansim/]"
+    output_path = pathlib.Path(args['--output']).absolute()
     # Create output directory if needed
     with Sync() as sync:
         if sync.comm.rank == 0:
             if not output_path.exists():
                 output_path.mkdir()
     post.visit_writes(args['<files>'], main, output=output_path)
-
