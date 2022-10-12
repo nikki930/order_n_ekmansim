@@ -4,6 +4,7 @@ Usage:
     plot_slices.py <files>...
 Options:
     --output= aos/home/nrahnamaei/PycharmProjects/order_n_ekmansim/  Output directory [default: ./frames]
+    --output = /Users/nikki/PycharmProjects/order_n_ekmansim/
 """
 
 import h5py

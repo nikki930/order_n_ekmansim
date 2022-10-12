@@ -133,7 +133,7 @@ problem.add_bc("dz(psi_Bz)(z='right') = 0")
 
 solver = problem.build_solver()
 solver.solve()
-state = solver.state['psi_A']
+z
 
 #output:
 folder = 'Forcing_Analysis/'

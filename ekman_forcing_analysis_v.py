@@ -104,7 +104,8 @@ Jac_temp_v['g'] = J_v_arr_corrected[100,:,:][gslices[0]]
 
 Jac_temp_zeta = domain.new_field()
 gslices = domain.dist.grid_layout.slices(scales=1)
-Jac_temp_zeta['g'] = J_zeta_arr_corrected[100,:,:][gslices[0]]-J_zeta_arr_corrected[0,:,:][gslices[0]]
+#Jac_temp_zeta['g'] = J_zeta_arr_corrected[100,:,:][gslices[0]]-J_zeta_arr_corrected[0,:,:][gslices[0]]
+Jac_temp_zeta['g'] = J_zeta_arr_corrected[100,:,:][gslices[0]]
 
 u_temp = domain.new_field()
 gslices = domain.dist.grid_layout.slices(scales=1)

@@ -7,9 +7,9 @@ framework to save data snapshots in HDF5 files.  The `merge_procs` command can
 be used to merge distributed analysis sets from parallel runs, and the
 `plot_slices.py` script can be used to plot the snapshots.
 To run, merge, and plot using 4 processes, for instance, you could use:
-    $ mpiexec -n 4 python3 rayleigh_benard.py
-    $ mpiexec -n 4 python3 -m dedalus merge_procs snapshots
-    $ mpiexec -n 4 python3 plot_slices.py snapshots/*.h5
+    $ mpiexec -n 2 order_n_time_dependent_d2.py
+    $ mpiexec -n 2 python3 -m dedalus merge_procs snapshots
+    $ mpiexec -n 2 python3 plot_slices.py snapshots/*.h5
 This script can restart the simulation from the last save of the original
 output to extend the integration.  This requires that the output files from
 the original simulation are merged, and the last is symlinked or copied to
@@ -109,7 +109,7 @@ problem.add_equation("dt(v) +(dx(dx(zeta))*nu_h + zetazz*nu) + f*vz = 0 ")
 problem.add_bc("psi(z='left') = 0")
 problem.add_bc("psi(z='right') = 0")
 problem.add_bc("vz(z='left') = 0")
-problem.add_bc("vz(z='right') = 0")
+problem.add_bc("vz(z='right') = (A/nu)*cos(x*k+ 3.14159/2)")
 problem.add_bc("dz(u)(z='left') = 0")
 problem.add_bc("dz(u)(z='right') = 0")
 
