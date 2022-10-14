@@ -4,11 +4,13 @@ import h5py
 import matplotlib.pyplot as plt
 import dedalus.public as d3
 import matplotlib
-
+import ffmpeg
+# import cv2
+import os
 
 # Parameters
 nx = 512 # fourier resolution
-nz = 64  # chebyshev resolution
+nz = 128  # chebyshev resolution
 
 H = 10  # depth of water in meters
 h_e = 1 #ekman thickness
@@ -24,29 +26,86 @@ Re = 1.6
 Rg=0.1
 
 sim_time = 50
+n_snaps = 50
 dt = 0.125
-psi_arr = np.zeros((12,nx, nz))
+psi_arr = np.zeros((n_snaps,nx, nz))
 
 zcoord = d3.Coordinate('z')
 dist = d3.Distributor(zcoord)
 z_basis = d3.Chebyshev(zcoord, size=nz, bounds=(0, H))
 
-folder = "snapshots"
-with h5py.File(folder + '/' + folder + '_s1/'+ folder + '_s1_p0.h5',
-               mode='r') as file:  # reading file
-
-    psi_arr[:, :, :] = np.array(file['tasks']['<psi>'])  # psi
-
-print(psi_arr[8,:,:])
-
 x = np.linspace(0, L, nx)
 X, Z = np.meshgrid(dist.local_grid(z_basis),x )
 
-fig,ax= plt.subplots(constrained_layout=True)
-CM= plt.pcolormesh(Z, X, psi_arr[11,:,:], shading='gouraud',cmap='PRGn')
-cbar = fig.colorbar(CM)
-plt.ylabel('vertical depth')
-plt.xlabel('periodic x-axis (0,2$\pi$)')
-plt.title('$\psi(t=0)$')
+s_num = 1
+for n in range(1,s_num+1):
+
+    folder = "snapshots"
+    with h5py.File(folder + '/' + folder + '_s' + str(n) + '.h5',
+                   mode='r') as file:  # reading file
+
+        psi_arr[:, :, :] = np.array(file['tasks']['<psi>'])  # psi
+
+
+
+    for i in range(n_snaps):
+
+        fig,ax= plt.subplots(constrained_layout=True)
+        CM= plt.pcolormesh(Z, X, psi_arr[i,:,:], shading='gouraud',cmap='PRGn')
+        cbar = fig.colorbar(CM)
+        plt.ylabel('vertical depth')
+        plt.xlabel('periodic x-axis (0,2$\pi$)')
+        plt.title('$\psi(t=0)$')
+        plt.savefig("images_ivp/s" + str(n) + "_" + str(i) + '.png')
+        plt.close(fig)
+
+
+
+# (
+#     ffmpeg
+#         .input('/images_ivp/s1_*.png', pattern_type='glob', framerate=25, analyzeduration = 100, probesize =100)
+#         .output('movie.mp4')
+#         .run()
+# )
+
+
+
+# Animate IVP
+from matplotlib.animation import FuncAnimation, FFMpegWriter
+from itertools import count
+
+fig, ax = plt.subplots(figsize=(6, 6), dpi=100)
+plt.subplot()
+plt.pcolormesh(Z, X, psi_arr[i,:,:], shading='gouraud',cmap='PRGn')
+plt.colorbar()
+
+i = 0
+
+def plot_frame(frame):
+    global i
+    im =plt.pcolormesh(Z, X, psi_arr[i,:,:], shading='gouraud',cmap='PRGn')
+    print(i)
+    i += 1
+    return im,
+
+
+ani = FuncAnimation(fig, plot_frame, interval=17, blit="True", save_count=20, repeat=False)
+ani.save('s1_video.mov', writer="ffmpeg")
 plt.show()
-plt.close(fig)
+
+
+
+# image_folder = 'images_ivp'
+# video_name = 's1_video.avi'
+#
+# images = [img for img in os.listdir(image_folder) if img.endswith(".png")]
+# frame = cv2.imread(os.path.join(image_folder, images[0]))
+# height, width, layers = frame.shape
+#
+# video = cv2.VideoWriter(video_name, 0, 1, (width,height))
+#
+# for image in images:
+#     video.write(cv2.imread(os.path.join(image_folder, image)))
+#
+# cv2.destroyAllWindows()
+# video.release()
