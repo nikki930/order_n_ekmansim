@@ -138,8 +138,8 @@ if not pathlib.Path('restart.h5').exists():
     # b.differentiate('z', out=bz)
 
     # Timestepping and output
-    dt = 0.125
-    stop_sim_time = 25
+    dt = 60
+    stop_sim_time = 1260
     fh_mode = 'overwrite'
 
 else:
@@ -157,17 +157,18 @@ solver.stop_sim_time = stop_sim_time
 # Analysis
 snapshots = solver.evaluator.add_file_handler('snapshots', sim_dt=0.25, max_writes=50, mode=fh_mode)
 snapshots.add_system(solver.state)
-snapshots.add_task("psi", layout='g', name='<psi>')  # saving variables
+snapshots.add_task("psi", layout='g', name='<psi>')
+snapshots.add_task("v", layout='g', name='<v>') # saving variables
 solver.evaluator.evaluate_handlers([snapshots], world_time=0, wall_time=0, sim_time=solver.sim_time, timestep=dt, iteration=stop_sim_time/dt)
 
 # CFL
-CFL = flow_tools.CFL(solver, initial_dt=dt, cadence=10, safety=0.5,
-                     max_change=1.5, min_change=0.5, max_dt=0.125, threshold=0.05)
+CFL = flow_tools.CFL(solver, initial_dt=dt, cadence=10, safety=1,
+                     max_change=1.5, min_change=0.5, max_dt=60, threshold=0.05)
 CFL.add_velocities(('u', 'v'))
 
 # Flow properties
 flow = flow_tools.GlobalFlowProperty(solver, cadence=10)
-#flow.add_property("sqrt(u*u)", name='U')
+flow.add_property("sqrt(u*u)", name='U')
 
 # Main loop
 try:
@@ -177,9 +178,9 @@ try:
         dt = solver.step(dt)
         if (solver.iteration-1) % 10 == 0:
             logger.info('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
-            #logger.info('Max Re = %f' %flow.max('Re'))
+            logger.info(' U = %f' %flow.max('U'))
 except:
     logger.error('Exception raised, triggering end of main loop.')
     raise
-# finally:
-#     solver.log_stats()
+finally:
+    solver.log_stats()
