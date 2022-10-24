@@ -38,8 +38,8 @@ logger = logging.getLogger(__name__)
 nx = 512 # fourier resolution
 nz = 128  # chebyshev resolution
 
-H = 10  # depth of water in meters
-h_e = 1 #ekman thickness
+H = 100  # depth of water in meters
+h_e = 10 #ekman thickness
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
@@ -51,6 +51,7 @@ k = (2 * np.pi) / (L)
 Re = 1.6
 Rg=0.1
 
+print(L)
 def Rossby(R_e, R_g):
 
     R_e_temp = R_e / (2 * np.pi)
@@ -72,6 +73,8 @@ def Rossby(R_e, R_g):
 
     return nu_value_temp,f_value_temp,r_value_temp,tau_value_temp
 
+print(Rossby(Re,Rg))
+
 x_basis = de.Fourier('x', nx, interval=(0, L))
 z_basis = de.Chebyshev('z', nz, interval=(0, H))
 domain = de.Domain([x_basis, z_basis], grid_dtype=np.float64)
@@ -91,7 +94,7 @@ problem.parameters['A'] = Rossby(Re,Rg)[3]   # forcing param
 problem.parameters['H'] = H
 problem.parameters['k'] = k
 
-# axuliary equations:
+# auxliary equations:
 problem.add_equation("u - psiz = 0")
 problem.add_equation("vz - dz(v) = 0")  # auxilary
 problem.add_equation("vx - dx(v) = 0")  # auxilary
@@ -102,8 +105,8 @@ problem.add_equation("psiz - dz(psi)=0")  # auxilary
 problem.add_equation("psix - dx(psi)=0")  # auxilary
 problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")  # zeta = grad^2(psi)
 
-problem.add_equation("dt(u) + (dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  -f*u =0")
-problem.add_equation("dt(v) +(dx(dx(zeta))*nu_h + zetazz*nu) + f*vz = 0 ")
+problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  +f*u =0")
+problem.add_equation(" dt(u) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = 0 ")
 
 # Boundary conditions:
 problem.add_bc("psi(z='left') = 0")
@@ -118,52 +121,53 @@ solver = problem.build_solver(de.timesteppers.RK222)
 logger.info('Solver built')
 
 # Initial conditions or restart
-if not pathlib.Path('restart.h5').exists():
+# if not pathlib.Path('restart.h5').exists():
 
-    # Initial conditions
-    x, z = domain.all_grids()
-    psi = solver.state['psi']
-    zeta = solver.state['zeta']
+# Initial conditions
+x, z = domain.all_grids()
+psi = solver.state['psi']
+zeta = solver.state['zeta']
 
-    # Random perturbations, initialized globally for same results in parallel
-    gshape = domain.dist.grid_layout.global_shape(scales=1)
-    slices = domain.dist.grid_layout.slices(scales=1)
-    rand = np.random.RandomState(seed=42)
-    noise = rand.standard_normal(gshape)[slices]
+# Random perturbations, initialized globally for same results in parallel
+# gshape = domain.dist.grid_layout.global_shape(scales=1)
+# slices = domain.dist.grid_layout.slices(scales=1)
+# rand = np.random.RandomState(seed=42)
+# noise = rand.standard_normal(gshape)[slices]
 
-    # # Linear background + perturbations damped at walls
-    # zb, zt = z_basis.interval
-    # pert =  1e-3 * noise * (zt - z) * (z - zb)
-    # b['g'] = F * pert
-    # b.differentiate('z', out=bz)
+# # Linear background + perturbations damped at walls
+# zb, zt = z_basis.interval
+# pert =  1e-3 * noise * (zt - z) * (z - zb)
+# b['g'] = F * pert
+# b.differentiate('z', out=bz)
 
-    # Timestepping and output
-    dt = 60
-    stop_sim_time = 1260
-    fh_mode = 'overwrite'
+# Timestepping and output
+dt = 1e6
+stop_sim_time = 1e8
+fh_mode = 'overwrite'
 
-else:
-    # Restart
-    write, last_dt = solver.load_state('restart.h5', -1)
-
-    # Timestepping and output
-    dt = last_dt
-    stop_sim_time = 50
-    fh_mode = 'append'
+# else:
+#     # Restart
+#     write, last_dt = solver.load_state('restart.h5', -1)
+#
+#     # Timestepping and output
+#     dt = last_dt
+#     stop_sim_time = 50
+#     fh_mode = 'append'
 
 # Integration parameters
 solver.stop_sim_time = stop_sim_time
 
 # Analysis
-snapshots = solver.evaluator.add_file_handler('snapshots', sim_dt=0.25, max_writes=50, mode=fh_mode)
+#snapshots = solver.evaluator.add_file_handler('snapshots', sim_dt=0.25, max_writes=50, mode=fh_mode)
+snapshots = solver.evaluator.add_file_handler('snapshots', iter=10, max_writes=150)
 snapshots.add_system(solver.state)
 snapshots.add_task("psi", layout='g', name='<psi>')
 snapshots.add_task("v", layout='g', name='<v>') # saving variables
-solver.evaluator.evaluate_handlers([snapshots], world_time=0, wall_time=0, sim_time=solver.sim_time, timestep=dt, iteration=stop_sim_time/dt)
+#solver.evaluator.evaluate_handlers([snapshots], world_time=0, wall_time=0, sim_time=solver.sim_time, timestep=dt, iteration=stop_sim_time/dt)
 
 # CFL
 CFL = flow_tools.CFL(solver, initial_dt=dt, cadence=10, safety=1,
-                     max_change=1.5, min_change=0.5, max_dt=60, threshold=0.05)
+                     max_change=1.5, min_change=0.5, max_dt=dt+10, min_dt=dt-10, threshold=0.05)
 CFL.add_velocities(('u', 'v'))
 
 # Flow properties
@@ -182,5 +186,5 @@ try:
 except:
     logger.error('Exception raised, triggering end of main loop.')
     raise
-finally:
-    solver.log_stats()
+# finally:
+#     solver.log_stats()
