@@ -120,39 +120,18 @@ problem.add_bc("dz(u)(z='right') = 0")
 solver = problem.build_solver(de.timesteppers.RK222)
 logger.info('Solver built')
 
-# Initial conditions or restart
-# if not pathlib.Path('restart.h5').exists():
-
 # Initial conditions
 x, z = domain.all_grids()
 psi = solver.state['psi']
 zeta = solver.state['zeta']
 
-# Random perturbations, initialized globally for same results in parallel
-# gshape = domain.dist.grid_layout.global_shape(scales=1)
-# slices = domain.dist.grid_layout.slices(scales=1)
-# rand = np.random.RandomState(seed=42)
-# noise = rand.standard_normal(gshape)[slices]
 
-# # Linear background + perturbations damped at walls
-# zb, zt = z_basis.interval
-# pert =  1e-3 * noise * (zt - z) * (z - zb)
-# b['g'] = F * pert
-# b.differentiate('z', out=bz)
 
 # Timestepping and output
 dt = 1e6
 stop_sim_time = 1e8
 fh_mode = 'overwrite'
 
-# else:
-#     # Restart
-#     write, last_dt = solver.load_state('restart.h5', -1)
-#
-#     # Timestepping and output
-#     dt = last_dt
-#     stop_sim_time = 50
-#     fh_mode = 'append'
 
 # Integration parameters
 solver.stop_sim_time = stop_sim_time
