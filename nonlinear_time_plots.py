@@ -15,7 +15,7 @@ H = 100  # depth of water in meters
 h_e = 10 #ekman thickness
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
-f = 1e-4  # coriolis param in 1/s
+f = 1e-4    # coriolis param in 1/s
 
 L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
