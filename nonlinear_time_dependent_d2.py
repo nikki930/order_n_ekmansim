@@ -105,7 +105,7 @@ v_z_arr = np.zeros((N + 1, n_time, nx, nz))
 v_x_arr = np.zeros((N + 1, n_time, nx, nz))
 v_arr = np.zeros((N + 1, n_time, nx, nz))
 max_vals = np.zeros(N + 1)
-
+t_arr= np.zeros((n_time))
 run_folder = 'Re_big/ivp/'
 
 
@@ -173,8 +173,8 @@ class Solver_n:
             n = n_solve - 1
             # print ("n_solve-1=",n)
             for j in range(0, n + 1):
-                J1 += psi_x_arr[j, :] * zeta_z_arr[n - j, :] - psi_z_arr[j, :] * zeta_x_arr[n - j, :]
-                J2 += psi_x_arr[j, :] * v_z_arr[n - j, :] - psi_z_arr[j, :] * v_x_arr[n - j, :]
+                J1 += psi_x_arr[j, n_time -1, :,:] * zeta_z_arr[n - j, n_time -1, :,:] - psi_z_arr[j, n_time -1, :,:] * zeta_x_arr[n - j, n_time -1, :,:]
+                J2 += psi_x_arr[j, n_time -1, :,:] * v_z_arr[n - j, n_time -1, :,:] - psi_z_arr[j, n_time -1, :,:] * v_x_arr[n - j, n_time -1, :,:]
 
             Jac_temp1 = domain.new_field()
             gslices = domain.dist.grid_layout.slices(scales=1)
@@ -198,6 +198,7 @@ class Solver_n:
 
         global solver
         global state
+        global dt
 
         # print("n_solve=",self.n)
 
@@ -277,17 +278,17 @@ class Solver_n:
         global psi_arr
         global t_arr
         global v_arr
-
-        folder_n = run_folder + 'out_' + str(self.n) + '_n'
-        folder_n_sub = 'out_' + str(self.n) + '_n'
+        global dt
+        folder_n = run_folder + 'snapshots_' + str(self.n) + '_n'
+        folder_n_sub = 'snapshots_' + str(self.n) + '_n'
 
         # Analysis
         # snapshots = solver.evaluator.add_file_handler('snapshots', sim_dt=0.25, max_writes=50, mode=fh_mode)
-        snapshots = solver.evaluator.add_file_handler('snapshots', iter=10, max_writes=150)
+        snapshots = solver.evaluator.add_file_handler(folder_n, iter=10, max_writes=150)
         snapshots.add_system(solver.state)
         snapshots.add_task("psi", layout='g', name='<psi>')
         snapshots.add_task("v", layout='g', name='<v>')  # saving variables
-        # solver.evaluator.evaluate_handlers([snapshots], world_time=0, wall_time=0, sim_time=solver.sim_time, timestep=dt, iteration=stop_sim_time/dt)
+        #solver.evaluator.evaluate_handlers([snapshots], world_time=0, wall_time=0, sim_time=solver.sim_time, timestep=dt, iteration = solver.iteration)
 
         # CFL
         CFL = flow_tools.CFL(solver, initial_dt=dt, cadence=10, safety=1,
@@ -300,15 +301,6 @@ class Solver_n:
 
         # evaluates the tasks declared above:
 
-
-        folder = "snapshots"
-        with h5py.File(folder + '/' + folder + '_s' + str(n) + '.h5',
-                       # with h5py.File(folder + '/' + folder + '_s' + str(n) + '/' + folder+ '_s' + str(n) + '_p0.h5',
-                       mode='r') as file:  # reading file
-            psi = file['tasks']['<psi>']
-            psi_arr[self.n,:, :, :] = np.array(file['tasks']['<psi>'])  # psi
-            v_arr[self.n,:, :, :] = np.array(file['tasks']['<v>'])  # psi
-            t_arr[:] = psi.dims[0]['sim_time']  # time array
 
 
         # Main loop
@@ -323,6 +315,18 @@ class Solver_n:
         except:
             logger.error('Exception raised, triggering end of main loop.')
             raise
+
+        n=1
+        folder = "snapshots"
+        #with h5py.File(folder + '/' + folder + '_s' + str(n) + '.h5',
+        #with h5py.File(folder + '/' + folder + '_s' + str(n) + '/' + folder+ '_s' + str(n) + '_p0.h5',
+        #mode='r') as file:  # reading file
+        with h5py.File(folder_n + '/' + folder_n_sub + '_s1/' + folder_n_sub + '_s1_p0.h5',
+                       mode='r') as file:  # reading file
+            psi = file['tasks']['<psi>']
+            psi_arr[self.n,:, :, :] = np.array(file['tasks']['<psi>'])  # psi
+            v_arr[self.n,:, :, :] = np.array(file['tasks']['<v>'])  # psi
+            t_arr[:] = psi.dims[0]['sim_time']  # time array
 
     def plotting(self, folder, FileName):
         global max_vals
@@ -346,26 +350,26 @@ class Solver_n:
 
         if self.n == 0:
 
-            psi_arr_corrected[self.n, :, :] = psi_arr[0, :, :]
+            psi_arr_corrected[self.n, :, :, :] = psi_arr[0, :, :, :]
             # print(psi_arr[0,:,:])
-            CS1 = plt.contourf(Z, X, psi_arr_corrected[0,                                                       :, :], 25, cmap='seismic')
+            CS1 = plt.contourf(Z, X, psi_arr_corrected[0, n_time-1, :, :], 25, cmap='seismic')
             cbar = fig.colorbar(CS1)
         else:
-            psi_arr_corrected[self.n, :, :] = psi_arr_corrected[self.n - 1, :, :] + psi_arr[self.n, :, :]
+            psi_arr_corrected[self.n, :, :, :] = psi_arr_corrected[self.n - 1, n_time-1, :, :] + psi_arr[self.n, :, :, :]
             # print(psi_arr_corrected[1,:,:])
 
-            CS2 = plt.contourf(Z, X, psi_arr_corrected[self.n, :, :], 25, cmap='seismic')
+            CS2 = plt.contourf(Z, X, psi_arr_corrected[self.n,n_time-1, :, :], 25, cmap='seismic')
             cbar = fig.colorbar(CS2)
 
         cbar.ax.set_ylabel('Streamfunction (kg/ms)')
         plt.ylabel('vertical depth')
         plt.xlabel('periodic x-axis (0,2$\pi$)')
-        plt.title( '$\Psi$ Order ' + str(self.n) ' at t = ' + str(time_mths(t_arr[i])) + ' months')
+        plt.title( '$\Psi$ Order ' + str(self.n) +' at t = ' + str(time_mths(t_arr[9])) + ' months')
         plt.figtext(0.5, 0.01, txt, wrap=True, horizontalalignment='center', fontsize=12)
         plt.savefig(FileName)
         plt.close(fig)
 
-        max_vals[self.n] = np.amax(psi_arr[self.n, :, :])
+        max_vals[self.n] = np.amax(psi_arr[self.n, n_time-1, :, :])
 
 
 """
