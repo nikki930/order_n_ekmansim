@@ -31,11 +31,11 @@ import time
 import h5py
 import matplotlib.pyplot as plt
 
-de.logging_setup.rootlogger.setLevel('ERROR')  # suppress logging msgs
+
 
 from dedalus import public as de
 from dedalus.extras import flow_tools
-
+de.logging_setup.rootlogger.setLevel('ERROR')  # suppress logging msgs
 import logging
 logger = logging.getLogger(__name__)
 
@@ -54,12 +54,9 @@ L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
 k = (2 * np.pi) / (L)
 
+N = 10 # the order up to which the model runs
 
 
-# Timestepping and output
-dt = 1e6
-stop_sim_time = 1e8
-fh_mode = 'overwrite'
 
 
 def Rossby(R_e, R_g):
@@ -88,26 +85,28 @@ z_basis = de.Chebyshev('z', nz, interval=(0, H))
 domain = de.Domain([x_basis, z_basis], grid_dtype=np.float64)
 
 # declaring domain and variables for the problem
-problem = de.LBVP(domain, variables=['psi', 'u', 'v', 'vx',
+problem = de.IVP(domain, variables=['psi', 'u', 'v', 'vx',
                                      'vz', 'zeta',
                                      'zetaz', 'zetax', 'psix', 'psiz', 'zetazz'])
 
+n_time = 10 #size of time array
+
 # Initializing arrays to store values at each order (adding one to the order column to account for indexing limits)
-psi_arr = np.zeros((N + 1, nx, nz))
-psi_arr_corrected = np.zeros((N + 1, nx, nz))
-psi_x_arr = np.zeros((N + 1, nx, nz))
-psi_z_arr = np.zeros((N + 1, nx, nz))
-zeta_arr = np.zeros((N + 1, nx, nz))
-zeta_x_arr = np.zeros((N + 1, nx, nz))
-zeta_xx_arr = np.zeros((N + 1, nx, nz))
-zeta_z_arr = np.zeros((N + 1, nx, nz))
-zeta_zz_arr = np.zeros((N + 1, nx, nz))
-v_z_arr = np.zeros((N + 1, nx, nz))
-v_x_arr = np.zeros((N + 1, nx, nz))
-v_arr = np.zeros((N + 1, nx, nz))
+psi_arr = np.zeros((N + 1, n_time, nx, nz))
+psi_arr_corrected = np.zeros((N + 1, n_time, nx, nz))
+psi_x_arr = np.zeros((N + 1, n_time, nx, nz))
+psi_z_arr = np.zeros((N + 1, n_time, nx, nz))
+zeta_arr = np.zeros((N + 1, n_time, nx, nz))
+zeta_x_arr = np.zeros((N + 1, n_time, nx, nz))
+zeta_xx_arr = np.zeros((N + 1, n_time, nx, nz))
+zeta_z_arr = np.zeros((N + 1, n_time, nx, nz))
+zeta_zz_arr = np.zeros((N + 1, n_time, nx, nz))
+v_z_arr = np.zeros((N + 1, n_time, nx, nz))
+v_x_arr = np.zeros((N + 1, n_time, nx, nz))
+v_arr = np.zeros((N + 1, n_time, nx, nz))
 max_vals = np.zeros(N + 1)
 
-run_folder = 'Re_big/'
+run_folder = 'Re_big/ivp/'
 
 
 class Solver_n:
@@ -202,9 +201,9 @@ class Solver_n:
 
         # print("n_solve=",self.n)
 
-        problem = de.LBVP(domain, variables=['psi', 'u', 'v', 'vx',
-                                             'vz', 'zeta',
-                                             'zetaz', 'zetax', 'psix', 'psiz', 'zetazz'])
+        problem = de.IVP(domain, variables=['psi', 'u', 'v', 'vx',
+                                            'vz', 'zeta',
+                                            'zetaz', 'zetax', 'psix', 'psiz', 'zetazz'])
 
         a_visc = ((300 / 2) ** 2) / (h_e ** 2)
         # setting up all parameters
@@ -239,7 +238,8 @@ class Solver_n:
             problem.add_bc("vz(z='right') = (A/nu)*cos(x*k+ 3.14159/2)")  # wind forcing on 0th order boundary condition
         else:
             problem.add_bc("vz(z='right') = 0")  # no wind forcing for higher orders
-            # print('bc')
+
+
         # Boundary conditions:
         problem.add_bc("psi(z='left') = 0")
         problem.add_bc("psi(z='right') = 0")
@@ -256,8 +256,30 @@ class Solver_n:
         psi = solver.state['psi']
         zeta = solver.state['zeta']
 
+        # Timestepping and output
+        dt = 1e6
+        stop_sim_time = 1e8
+        fh_mode = 'overwrite'
+
         # Integration parameters
         solver.stop_sim_time = stop_sim_time
+
+
+
+
+    def analysis(self, FolderName):
+
+        '''
+        Obtains data values for state variable we want to analyze, stores the data as h5py file and performs
+        specified tasks to the object. Saves variable data into initialized arrays for specified order.
+        :rtype: object
+        '''
+        global psi_arr
+        global t_arr
+        global v_arr
+
+        folder_n = run_folder + 'out_' + str(self.n) + '_n'
+        folder_n_sub = 'out_' + str(self.n) + '_n'
 
         # Analysis
         # snapshots = solver.evaluator.add_file_handler('snapshots', sim_dt=0.25, max_writes=50, mode=fh_mode)
@@ -276,6 +298,19 @@ class Solver_n:
         flow = flow_tools.GlobalFlowProperty(solver, cadence=10)
         flow.add_property("sqrt(u*u)", name='U')
 
+        # evaluates the tasks declared above:
+
+
+        folder = "snapshots"
+        with h5py.File(folder + '/' + folder + '_s' + str(n) + '.h5',
+                       # with h5py.File(folder + '/' + folder + '_s' + str(n) + '/' + folder+ '_s' + str(n) + '_p0.h5',
+                       mode='r') as file:  # reading file
+            psi = file['tasks']['<psi>']
+            psi_arr[self.n,:, :, :] = np.array(file['tasks']['<psi>'])  # psi
+            v_arr[self.n,:, :, :] = np.array(file['tasks']['<v>'])  # psi
+            t_arr[:] = psi.dims[0]['sim_time']  # time array
+
+
         # Main loop
         try:
             logger.info('Starting loop')
@@ -288,65 +323,6 @@ class Solver_n:
         except:
             logger.error('Exception raised, triggering end of main loop.')
             raise
-            # finally:
-
-    def analysis(self, FolderName):
-
-        '''
-        Obtains data values for state variable we want to analyze, stores the data as h5py file and performs
-        specified tasks to the object. Saves variable data into initialized arrays for specified order.
-        :rtype: object
-        '''
-        global psi_arr
-        global psi_x_arr
-        global psi_z_arr
-        global zeta_arr
-        global zeta_x_arr
-        global zeta_z_arr
-        global zeta_zz_arr
-        global v_x_arr
-        global v_z_arr
-        global v_arr
-
-        folder_n = run_folder + 'out_' + str(self.n) + '_n'
-        folder_n_sub = 'out_' + str(self.n) + '_n'
-
-        out = solver.evaluator.add_file_handler(folder_n)  # storing output into file with specified name
-        out.add_system(solver.state)
-
-        out.add_task("psi", layout='g', name='<psi>')  # saving variables
-        out.add_task("psix", layout='g', name='<psix>')  # saving variables
-        out.add_task("psiz", layout='g', name='<psiz>')  # saving variables
-        out.add_task("zetax", layout='g', name='<zetax>')  # saving variables
-        out.add_task("zetaz", layout='g', name='<zetaz>')  # saving variables
-        out.add_task("zetazz", layout='g', name='<zetazz>')
-        out.add_task("dx(zetax)", layout='g', name='<zetaxx>')  # saving variables
-        out.add_task("zeta", layout='g', name='<zeta>')  # saving variables
-        out.add_task("u", layout='g', name='<u>')
-        out.add_task("vx", layout='g', name='<vx>')
-        out.add_task("vz", layout='g', name='<vz>')
-        out.add_task("v", layout='g', name='<v>')
-        out.add_task("psix* zetaz - psiz * zetax", layout='g', name='<J>')
-        out.add_task("u*vx  + psix*vz", layout='g', name='<J_psi_v>')
-        out.add_task("r*(1/H)*integ(v,'z')", layout='g', name='<damping>')
-        # evaluates the tasks declared above:
-        solver.evaluator.evaluate_handlers([out], world_time=0, wall_time=0, sim_time=0, timestep=0, iteration=0)
-
-        with h5py.File(folder_n + '/' + folder_n_sub + '_s1/' + folder_n_sub + '_s1_p0.h5',
-                       mode='r') as file:  # reading file
-
-            psi_arr[self.n, :, :] = np.array(file['tasks']['<psi>'])  # psi
-            zeta_arr[self.n, :, :] = np.array(file['tasks']['<zeta>'])  # zeta
-            psi_x_arr[self.n, :, :] = np.array(file['tasks']['<psix>'])  # d/dx (psi)
-            psi_z_arr[self.n, :, :] = np.array(file['tasks']['<psiz>'])  # d/dz (psi)
-            zeta_arr[self.n, :, :] = np.array(file['tasks']['<zeta>'])  # zeta
-            zeta_x_arr[self.n, :, :] = np.array(file['tasks']['<zetax>'])
-            zeta_xx_arr[self.n, :, :] = np.array(file['tasks']['<zetaxx>'])
-            zeta_z_arr[self.n, :, :] = np.array(file['tasks']['<zetaz>'])
-            zeta_zz_arr[self.n, :, :] = np.array(file['tasks']['<zetazz>'])
-            v_x_arr[self.n, :, :] = np.array(file['tasks']['<vx>'])  #
-            v_z_arr[self.n, :, :] = np.array(file['tasks']['<vz>'])  #
-            v_arr[self.n, :, :] = np.array(file['tasks']['<v>'])  #
 
     def plotting(self, folder, FileName):
         global max_vals
@@ -359,7 +335,8 @@ class Solver_n:
         x = np.linspace(0, L, nx)
         z = np.linspace(0, H, nz)
         X, Z = np.meshgrid(z, x)
-
+        time_yrs = lambda t: round(t / 3.154e7, 2)
+        time_mths = lambda t: round(t / 2.628e6, 2)
         # state.require_grid_space()
         # plot_tools.plot_bot_2d(state)
         # plt.savefig(FileName)
@@ -371,7 +348,7 @@ class Solver_n:
 
             psi_arr_corrected[self.n, :, :] = psi_arr[0, :, :]
             # print(psi_arr[0,:,:])
-            CS1 = plt.contourf(Z, X, psi_arr_corrected[0, :, :], 25, cmap='seismic')
+            CS1 = plt.contourf(Z, X, psi_arr_corrected[0,                                                       :, :], 25, cmap='seismic')
             cbar = fig.colorbar(CS1)
         else:
             psi_arr_corrected[self.n, :, :] = psi_arr_corrected[self.n - 1, :, :] + psi_arr[self.n, :, :]
@@ -383,9 +360,7 @@ class Solver_n:
         cbar.ax.set_ylabel('Streamfunction (kg/ms)')
         plt.ylabel('vertical depth')
         plt.xlabel('periodic x-axis (0,2$\pi$)')
-        plt.title(
-            'Streamfunction Order ' + str(self.n) + ' with $\\nu$ =' + "{:.1e}".format(nu) + ' , r= ' + "{:.1e}".format(
-                r) + ' , $\\tau$=' + "{:.1e}".format(tau))
+        plt.title( '$\Psi$ Order ' + str(self.n) ' at t = ' + str(time_mths(t_arr[i])) + ' months')
         plt.figtext(0.5, 0.01, txt, wrap=True, horizontalalignment='center', fontsize=12)
         plt.savefig(FileName)
         plt.close(fig)
