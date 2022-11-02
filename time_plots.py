@@ -4,7 +4,7 @@ import h5py
 import matplotlib.pyplot as plt
 import dedalus.public as d3
 import matplotlib
-import ffmpeg
+#import ffmpeg
 import os
 
 # Parameters
@@ -24,19 +24,20 @@ k = (2 * np.pi) / (L)
 Re = 1.6
 Rg=0.1
 
+N=10
+n_snaps = 11
 
-n_snaps = 10
-
-psi_arr = np.zeros((n_snaps,nx, nz))
-v_arr = np.zeros((n_snaps, nx, nz))
+psi_arr = np.zeros((N,n_snaps,nx, nz))
+v_arr = np.zeros((N,n_snaps, nx, nz))
 t_arr = np.zeros(n_snaps)
 
-zcoord = d3.Coordinate('z')
-dist = d3.Distributor(zcoord)
-z_basis = d3.Chebyshev(zcoord, size=nz, bounds=(0, H))
+#zcoord = d3.Coordinate('z')
+#dist = d3.Distributor(zcoord)
+#z_basis = d3.Chebyshev(zcoord, size=nz, bounds=(0, H))
 
 x = np.linspace(0, L, nx)
-X, Z = np.meshgrid(dist.local_grid(z_basis),x )
+z = np.linspace(0, H, nz)
+X, Z = np.meshgrid(z,x )
 
 # fig, ax = plt.subplots(constrained_layout=True)
 # plt.plot(x, v_arr[10, :, 68])
@@ -45,45 +46,48 @@ X, Z = np.meshgrid(dist.local_grid(z_basis),x )
 # plt.title('$v(t=0)$')
 # plt.show()
 # plt.close(fig)
-
+run_folder = 'Re_big/ivp/'
 time_yrs = lambda t: round(t/3.154e7,2)
 time_mths = lambda t: round(t/2.628e6,2)
-s_num = 1
-for n in range(1,s_num+1):
 
-    folder = "snapshots"
-    with h5py.File(folder + '/' + folder + '_s' + str(n) + '.h5',
+for n in range (0,N-1):
+
+    folder_n = run_folder + 'snapshots_' + str(n) + '_n'
+    folder_n_sub = 'snapshots_' + str(n)  + '_n'
+
+    #with h5py.File(folder + '/' + folder + '_s' + str(n) + '.h5',
     #with h5py.File(folder + '/' + folder + '_s' + str(n) + '/' + folder+ '_s' + str(n) + '_p0.h5',
+     #              mode='r') as file:  # reading file
+    with h5py.File(folder_n + '/' + folder_n_sub + '_s1/' + folder_n_sub + '_s1_p0.h5',
                    mode='r') as file:  # reading file
         psi = file['tasks']['<psi>']
-        psi_arr[:, :, :] = np.array(file['tasks']['<psi>'])  # psi
-        v_arr[:, :, :] = np.array(file['tasks']['<v>'])  # psi
+        psi_arr[n,:, :] = np.array(file['tasks']['<psi>'])  # psi
+        v_arr[n ,:, :] = np.array(file['tasks']['<v>'])  # psi
         t_arr[:] = psi.dims[0]['sim_time'] #time array
 
-
+for t in range(0, n_snaps):
     #maxval_psi=0.0006
     maxval_v = 1e-5
-    for i in range(n_snaps):
     #
-        fig,ax= plt.subplots(constrained_layout=True)
-        #CM= plt.pcolormesh(Z, X, psi_arr[i,:,:], shading='gouraud',cmap='PRGn', vmin=-maxval_psi, vmax=maxval_psi)
-        CM = plt.pcolormesh(Z, X, psi_arr[i, :, :], shading='gouraud', cmap='PRGn')
-        cbar = fig.colorbar(CM)
-        plt.ylabel('vertical depth')
-        plt.xlabel('periodic x-axis (0,2$\pi$)')
-        plt.title('$\psi$ at t = ' + str(time_mths(t_arr[i])) + ' months')
-        plt.savefig("images_ivp/psi_test_s" + str(n) + "_" + str(i) + '.png')
-        plt.close(fig)
-    #
-        fig, ax = plt.subplots(constrained_layout=True)
-        #CM = plt.pcolormesh(Z, X, v_arr[i, :, :], shading='gouraud', cmap='PRGn', vmin=-maxval_v, vmax=maxval_v)
-        CM = plt.pcolormesh(Z, X, v_arr[i, :, :], shading='gouraud', cmap='PRGn')
-        cbar = fig.colorbar(CM)
-        plt.ylabel('vertical depth')
-        plt.xlabel('periodic x-axis (0,2$\pi$)')
-        plt.title('$v$ at t = ' + str(time_mths(t_arr[i])) + ' months')
-        plt.savefig("images_ivp/v_test_s" + str(n) + "_" + str(i) + '.png')
-        plt.close(fig)
+    fig,ax= plt.subplots(constrained_layout=True)
+    #CM= plt.pcolormesh(Z, X, psi_arr[i,:,:], shading='gouraud',cmap='PRGn', vmin=-maxval_psi, vmax=maxval_psi)
+    CM = plt.pcolormesh(Z, X, psi_arr[n, t, :, :], shading='gouraud', cmap='PRGn')
+    cbar = fig.colorbar(CM)
+    plt.ylabel('vertical depth')
+    plt.xlabel('periodic x-axis (0,2$\pi$)')
+    plt.title('$\psi$ at t = ' + str(time_mths(t_arr[t])) + ' months')
+    plt.savefig("Re_big/ivp/psi_test_o" + str(n) + "_t" + str(t) + '.png')
+    plt.close(fig)
+#
+    fig, ax = plt.subplots(constrained_layout=True)
+    #CM = plt.pcolormesh(Z, X, v_arr[i, :, :], shading='gouraud', cmap='PRGn', vmin=-maxval_v, vmax=maxval_v)
+    CM = plt.pcolormesh(Z, X, v_arr[n, t, :, :], shading='gouraud', cmap='PRGn')
+    cbar = fig.colorbar(CM)
+    plt.ylabel('vertical depth')
+    plt.xlabel('periodic x-axis (0,2$\pi$)')
+    plt.title('$v$ at t = ' + str(time_mths(t_arr[t])) + ' months')
+    plt.savefig("Re_big/ivp/v_test_o" + str(n) + "_t" + str(t) + '.png')
+    plt.close(fig)
 
 
 
