@@ -138,7 +138,7 @@ solver.stop_sim_time = stop_sim_time
 
 # Analysis
 #snapshots = solver.evaluator.add_file_handler('snapshots', sim_dt=0.25, max_writes=50, mode=fh_mode)
-snapshots = solver.evaluator.add_file_handler('snapshots', iter=10, max_writes=150)
+snapshots = solver.evaluator.add_file_handler('Re_big/ivp/linear/snapshots', iter=10, max_writes=150)
 snapshots.add_system(solver.state)
 snapshots.add_task("psi", layout='g', name='<psi>')
 snapshots.add_task("v", layout='g', name='<v>') # saving variables
@@ -167,3 +167,4 @@ except:
     raise
 # finally:
 #     solver.log_stats()
+
