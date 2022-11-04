@@ -73,7 +73,10 @@ for n in range (0,N-1):
     else:
         psi_arr_corrected[n, :,:, :] = psi_arr_corrected[n - 1,:, :, :] + psi_arr[n, :,:, :]
         v_arr_corrected[n, :,:, :] = v_arr_corrected[n - 1, :,:, :] + v_arr[n, :,:, :]
-n=0
+
+print(psi_arr_corrected[5,3, :, :]-psi_arr_corrected[3,3, :, :])
+
+n=5
 for t in range(1, n_snaps):
     #maxval_psi=0.0006
     maxval_v = 1e-5
@@ -101,6 +104,8 @@ for t in range(1, n_snaps):
     plt.title('$v$ at t = ' + str(time_mths(t_arr[t])) + ' months')
     plt.savefig("Re_big/ivp/v_test_o" + str(n) + "_t" + str(t) + '.png')
     plt.close(fig)
+
+
 
 
 

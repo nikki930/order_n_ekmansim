@@ -25,7 +25,7 @@ Re = 1.6
 Rg=0.1
 
 
-n_snaps = 10
+n_snaps = 102
 
 psi_arr = np.zeros((n_snaps,nx, nz))
 v_arr = np.zeros((n_snaps, nx, nz))

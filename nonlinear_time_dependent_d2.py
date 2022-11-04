@@ -1,27 +1,7 @@
-"""
-Dedalus script for 2D Rayleigh-Benard convection.
-This script uses a Fourier basis in the x direction with periodic boundary
-conditions.  The equations are scaled in units of the buoyancy time (Fr = 1).
-This script can be ran serially or in parallel, and uses the built-in analysis
-framework to save data snapshots in HDF5 files.  The `merge_procs` command can
-be used to merge distributed analysis sets from parallel runs, and the
-`plot_slices.py` script can be used to plot the snapshots.
-To run, merge, and plot using 4 processes, for instance, you could use:
-    $ mpiexec -n 2 order_n_time_dependent_d2.py
-    $ mpiexec -n 2 python3 -m dedalus merge_procs snapshots
-    $ mpiexec -n 2 python3 plot_slices.py snapshots/*.h5
-This script can restart the simulation from the last save of the original
-output to extend the integration.  This requires that the output files from
-the original simulation are merged, and the last is symlinked or copied to
-`restart.h5`.
-To run the original example and the restart, you could use:
-    $ mpiexec -n 4 python3 rayleigh_benard.py
-    $ mpiexec -n 4 python3 -m dedalus merge_procs snapshots
-    $ ln -s snapshots/snapshots_s2.h5 restart.h5
-    $ mpiexec -n 4 python3 rayleigh_benard.py
-The simulations should take a few process-minutes to run.
-"""
 
+"""
+2D Ekman Solver from Navier-Stokes equations
+"""
 
 from mpi4py import MPI
 import numpy as np
@@ -135,13 +115,14 @@ class Solver_n:
         r = self.r
         tau = self.tau
 
-    def Jn(self, n_solve):
+    def Jn(self, t_idx, n_solve):
 
         '''
         Calculates the nonlinear terms of order n
 
         :param self:
-        :param n: order to solve J to
+        :param t_idx: index of time at which
+        :param n_solve: order to solve J to
         :return: [J(psi,zeta), J(psi,v)]
         '''
         J1 = 0
@@ -151,40 +132,24 @@ class Solver_n:
 
         if n_solve == 0:
             return J1, J2
-        # elif n==1:
-        #     # loading Jacobians (nonlinear terms) from the 0th order analysis tasks
-        #     with h5py.File(folder0 + '/' + folder0 + '_s1/' + folder0 + '_s1_p0.h5', mode='r') as file:  # reading file
-        #         J0_1 = np.array(file['tasks']['<J>'])
-        #         J0_2 = np.array(file['tasks']['<J_psi_v>'])
-        #
-        #
-        #     # initializing and saving loaded jacobians into dedalus-readable fields
-        #     Jac = domain.new_field()
-        #     gslices = domain.dist.grid_layout.slices(scales=1)
-        #     Jac['g'] = J0_1[0, :, :][gslices[0]]
-        #
-        #     Jac_psi_v = domain.new_field()
-        #     gslices = domain.dist.grid_layout.slices(scales=1)
-        #     Jac_psi_v['g'] = J0_2[0, :, :][gslices[0]]
-        #
-        #     return Jac,Jac_psi_v
 
         else:
             n = n_solve - 1
             # print ("n_solve-1=",n)
             for j in range(0, n + 1):
-                J1 += psi_x_arr[j, n_time -1, :,:] * zeta_z_arr[n - j, n_time -1, :,:] - psi_z_arr[j, n_time -1, :,:] * zeta_x_arr[n - j, n_time -1, :,:]
-                J2 += psi_x_arr[j, n_time -1, :,:] * v_z_arr[n - j, n_time -1, :,:] - psi_z_arr[j, n_time -1, :,:] * v_x_arr[n - j, n_time -1, :,:]
+                J1 += psi_x_arr[j, :, :,:] * zeta_z_arr[n - j, :, :,:] - psi_z_arr[j, :, :,:] * zeta_x_arr[n - j, :, :,:]
+                J2 += psi_x_arr[j, :, :,:] * v_z_arr[n - j, :, :,:] - psi_z_arr[j, :, :,:] * v_x_arr[n - j, :, :,:]
 
             Jac_temp1 = domain.new_field()
             gslices = domain.dist.grid_layout.slices(scales=1)
-            Jac_temp1['g'] = J1[gslices[0]]
+            Jac_temp1['g'] = J1[t_idx,:,:][gslices[0]]
 
             Jac_temp2 = domain.new_field()
             gslices = domain.dist.grid_layout.slices(scales=1)
-            Jac_temp2['g'] = J2[gslices[0]]
+            Jac_temp2['g'] = J2[t_idx,:,:][gslices[0]]
 
             return Jac_temp1, Jac_temp2
+
 
     def eqns(self, state_var):
 
@@ -199,8 +164,23 @@ class Solver_n:
         global solver
         global state
         global dt
+        global Jac_psi_zeta
+        global Jac_psi_v
 
-        # print("n_solve=",self.n)
+        # def data_1(*args, domain=domain, F=self.Jn):
+        #
+        #     return de.operators.GeneralFunction(domain, layout='g', func=F(self.n)[0], args=args)
+        #
+        # def data_2(*args, domain=domain, F=self.Jn):
+        #
+        #     return de.operators.GeneralFunction(domain, layout='g', func=F(self.n)[1], args=args)
+        if self.n==0:
+            Jac_psi_zeta = 0
+            Jac_psi_v = 0
+
+        else:
+            Jac_psi_zeta = self.Jn(0, self.n)[0]
+            Jac_psi_v = self.Jn(0, self.n)[1]
 
         problem = de.IVP(domain, variables=['psi', 'u', 'v', 'vx',
                                             'vz', 'zeta',
@@ -216,9 +196,19 @@ class Solver_n:
         problem.parameters['H'] = H
         problem.parameters['k'] = k
 
-        problem.parameters['Jac'] = self.Jn(self.n)[0]  # self.j = self.j2 = 0 for 0th order solution
-        problem.parameters['Jac_psi_v'] = self.Jn(self.n)[1]
 
+            #
+            # Jac_psi_zeta.meta['x', 'z']['constant'] = True
+            # Jac_psi_v.meta['x', 'z']['constant'] = True
+            #de.operators.parseables['Jac_psi_v'] = data_2()
+            #de.operators.parseables['Jac_psi_zeta'] =data_1()
+
+        problem.parameters['Jac_psi_zeta'] = Jac_psi_zeta
+        problem.parameters['Jac_psi_v'] =Jac_psi_v
+
+
+        # de.operators.parseables['Jac_psi_v'] = data_2()
+        # de.operators.parseables['Jac_psi_zeta'] =data_1()
         # axuliary equations:
         problem.add_equation("u - psiz = 0")
         problem.add_equation("vz - dz(v) = 0")  # auxilary
@@ -231,7 +221,7 @@ class Solver_n:
         problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")  # zeta = grad^2(psi)
 
         problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  +f*u =Jac_psi_v")
-        problem.add_equation(" dt(u) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = Jac ")
+        problem.add_equation(" dt(u) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = Jac_psi_zeta ")
 
 
         # for 0th order
@@ -279,6 +269,9 @@ class Solver_n:
         global t_arr
         global v_arr
         global dt
+        global Jac_psi_zeta
+        global Jac_psi_v
+
         folder_n = run_folder + 'snapshots_' + str(self.n) + '_n'
         folder_n_sub = 'snapshots_' + str(self.n) + '_n'
 
@@ -287,7 +280,7 @@ class Solver_n:
         snapshots = solver.evaluator.add_file_handler(folder_n, iter=10, max_writes=150)
         snapshots.add_system(solver.state)
         snapshots.add_task("psi", layout='g', name='<psi>')
-        snapshots.add_task("v", layout='g', name='<v>')  # saving variables
+        snapshots.add_task("v", layout='g', name='<v>')  # saving variablesy\
         #solver.evaluator.evaluate_handlers([snapshots], world_time=0, wall_time=0, sim_time=solver.sim_time, timestep=dt, iteration = solver.iteration)
 
         # CFL
@@ -299,28 +292,31 @@ class Solver_n:
         flow = flow_tools.GlobalFlowProperty(solver, cadence=10)
         flow.add_property("sqrt(u*u)", name='U')
 
-        # evaluates the tasks declared above:
-
-
-
+        t_count = 0
         # Main loop
         try:
             logger.info('Starting loop')
             while solver.proceed:
                 dt = CFL.compute_dt()
                 dt = solver.step(dt)
+
                 if (solver.iteration - 1) % 10 == 0:
+                    print('Iteration: %i, Time: %e, dt: %e' % (solver.iteration, solver.sim_time, dt))
                     logger.info('Iteration: %i, Time: %e, dt: %e' % (solver.iteration, solver.sim_time, dt))
                     logger.info(' U = %f' % flow.max('U'))
+                    Jac_psi_zeta = self.Jn(t_count, self.n)[0]
+                    Jac_psi_v = self.Jn(t_count, self.n)[1]
+                    t_count += 1
         except:
             logger.error('Exception raised, triggering end of main loop.')
             raise
 
         n=1
-        folder = "snapshots"
+        #folder = "snapshots"
         #with h5py.File(folder + '/' + folder + '_s' + str(n) + '.h5',
         #with h5py.File(folder + '/' + folder + '_s' + str(n) + '/' + folder+ '_s' + str(n) + '_p0.h5',
         #mode='r') as file:  # reading file
+
         with h5py.File(folder_n + '/' + folder_n_sub + '_s1/' + folder_n_sub + '_s1_p0.h5',
                        mode='r') as file:  # reading file
             psi = file['tasks']['<psi>']
