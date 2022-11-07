@@ -68,7 +68,7 @@ Rg=0.1
 print(L)
 
 # Timestepping
-dt = 1e4
+dt = 1000
 max_dt = 1e6
 min_dt = 0
 #min_dt = 1e3
@@ -225,7 +225,7 @@ snapshots.add_task("zetaz", layout='g', name='<zetaz>')
 
 # CFL
 CFL = flow_tools.CFL(solver, initial_dt=dt, cadence=1, safety=1,
-                     max_change=1000, min_change=0.5, max_dt=max_dt, min_dt=min_dt, threshold=0.05)
+                     max_change=10, min_change=0.5, max_dt=max_dt, min_dt=min_dt, threshold=0.05)
 CFL.add_velocities(('u', 'psix'))
 
 # Flow properties
@@ -237,7 +237,7 @@ flow.add_property("psix", name='W')
 
 time_yrs = lambda t: round(t/3.154e7,2)
 time_mths = lambda t: round(t/2.628e6,2)
-X, Z = np.meshgrid(z,x )
+X, Z = np.meshgrid(z,x)
 
 def plotting(t_idx):
     fig, ax = plt.subplots(constrained_layout=True)
@@ -260,6 +260,17 @@ def plotting(t_idx):
     plt.xlabel('periodic x-axis (0,2$\pi$)')
     plt.title('$v$ at t = ' + str(time_mths(t_arr[t_idx])) + ' months with $\Delta t = $' + str(dt) )
     plt.savefig(folder + "v_bigsteptest_t_" + str(t_idx) + '.png')
+    plt.close(fig)
+
+    fig, ax = plt.subplots(constrained_layout=True)
+    # CM= plt.pcolormesh(Z, X, psi_arr[i,:,:], shading='gouraud',cmap='PRGn', vmin=-maxval_psi, vmax=maxval_psi)
+    CS = plt.contour(Z, X, psi_x_arr[t_idx, :, :], 30, colors='k')
+    CM = plt.pcolormesh(Z, X, psi_x_arr[t_idx, :, :], shading='gouraud', cmap='PRGn')
+    cbar = fig.colorbar(CM)
+    plt.ylabel('vertical depth')
+    plt.xlabel('periodic x-axis (0,2$\pi$)')
+    plt.title('$w$ at t = ' + str(time_mths(t_arr[t_idx])) + ' months with $\Delta t = $' + str(dt) )
+    plt.savefig(folder + "w_bigsteptest_t_" + str(t_idx) + '.png')
     plt.close(fig)
 
 # Main loop
@@ -293,7 +304,7 @@ try:
             print('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
             print(' U = %f' % flow.max('U'))
             print(' W = %f' % flow.max('W'))
-            plotting(t_count)
+        plotting(t_count)
 
         if flow.max('U') > 1.3:
             logger.error('horizontal velocity exceeds normal threshold at ' + str(solver.iteration) +
