@@ -30,11 +30,24 @@ import h5py
 import matplotlib.pyplot as plt
 from dedalus import public as de
 from dedalus.extras import flow_tools
-
 import logging
-logger = logging.getLogger(__name__)
 
-n_core = int(4)
+run_folder = 'Re_big/ivp/snapshots'
+folder_n = run_folder
+folder_n_sub = 'snapshots'
+folder = 'Re_big/ivp/'
+
+logging.basicConfig(filename=folder + 'logfile.log',
+                    filemode='w', #a = append mode
+                    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                    datefmt='%H:%M:%S',
+                    level=logging.INFO, force =True)
+logging.info("Nonlinear Ekman IVP")
+
+logger = logging.getLogger('nonlin_ekman_ivp')
+
+sci = lambda n: "{:.2e}".format(n)
+n_core = int(1)
 # Parameters
 nx = 128 # fourier resolution
 nz = 68  # chebyshev resolution
@@ -54,27 +67,32 @@ Rg=0.1
 
 print(L)
 
-# Timestepping and output
-dt = 1e6
-stop_sim_time = 2*1e8
+# Timestepping
+dt = 10
+max_dt = 10*dt
+min_dt = 0
+#min_dt = 1e3
+
+#stop_sim_time = 2*1e8
+stop_sim_time=1e6
 fh_mode = 'overwrite'
 
-n_snaps=int(stop_sim_time/(dt)) + 2
+n_snaps=int(stop_sim_time/(dt))
 print(n_snaps)
 t_count = 0
 
-psi_arr = np.zeros((n_snaps+1,nx, int(nz/n_core)))
-psi_x_arr = np.zeros((n_snaps+1,nx, int(nz/n_core)))
-psi_z_arr = np.zeros((n_snaps+1,nx, int(nz/n_core)))
-psi_arr_corrected= np.zeros((n_snaps+1,nx, int(nz/n_core)))
-v_arr = np.zeros((n_snaps+1, nx, int(nz/n_core)))
-v_z_arr = np.zeros((n_snaps+1, nx, int(nz/n_core)))
-v_x_arr = np.zeros((n_snaps+1, nx, int(nz/n_core)))
-zeta_arr = np.zeros((n_snaps+1, nx, int(nz/n_core)))
-zeta_z_arr = np.zeros((n_snaps+1, nx, int(nz/n_core)))
-zeta_x_arr = np.zeros((n_snaps+1, nx, int(nz/n_core)))
-v_arr_corrected = np.zeros((n_snaps+1, nx, int(nz/n_core)))
-t_arr = np.zeros(n_snaps)
+psi_arr = np.zeros((n_snaps+2,nx, int(nz/n_core)))
+psi_x_arr = np.zeros((n_snaps+2,nx, int(nz/n_core)))
+psi_z_arr = np.zeros((n_snaps+2,nx, int(nz/n_core)))
+psi_arr_corrected= np.zeros((n_snaps+2,nx, int(nz/n_core)))
+v_arr = np.zeros((n_snaps+2, nx, int(nz/n_core)))
+v_z_arr = np.zeros((n_snaps+2, nx, int(nz/n_core)))
+v_x_arr = np.zeros((n_snaps+2, nx, int(nz/n_core)))
+zeta_arr = np.zeros((n_snaps+2, nx, int(nz/n_core)))
+zeta_z_arr = np.zeros((n_snaps+2, nx, int(nz/n_core)))
+zeta_x_arr = np.zeros((n_snaps+2, nx, int(nz/n_core)))
+v_arr_corrected = np.zeros((n_snaps+2, nx, int(nz/n_core)))
+t_arr = np.zeros(n_snaps+1)
 
 def Jn(t_idx):
     '''
@@ -166,14 +184,15 @@ problem.add_equation("psiz - dz(psi)=0")  # auxilary
 problem.add_equation("psix - dx(psi)=0")  # auxilary
 problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")  # zeta = grad^2(psi)
 
-problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  +f*u =Jac_psi_v")
-problem.add_equation(" dt(u) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = Jac_psi_zeta ")
+problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  +f*u =-Jac_psi_v")
+problem.add_equation(" dt(u) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = -Jac_psi_zeta ")
 
 # Boundary conditions:
 if t_count == 0:
     problem.add_bc("vz(z='right') = (A/nu)*cos(x*k+ 3.14159/2)")  # wind forcing on 0th order boundary condition
 else:
     problem.add_bc("vz(z='right') = 0")  # no wind forcing for higher orders
+
 problem.add_bc("vz(z='left') = 0")
 problem.add_bc("psi(z='left') = 0")
 problem.add_bc("psi(z='right') = 0")
@@ -211,20 +230,18 @@ snapshots.add_task("dx(zeta)", layout='g', name='<zetax>')
 snapshots.add_task("zetaz", layout='g', name='<zetaz>')
 #solver.evaluator.evaluate_handlers([snapshots], world_time=0, wall_time=0, sim_time=solver.sim_time, timestep=dt, iteration=stop_sim_time/dt)
 
+
 # CFL
 CFL = flow_tools.CFL(solver, initial_dt=dt, cadence=1, safety=1,
-                     max_change=10, min_change=0.5, max_dt=1e4, min_dt=1e3, threshold=0.05)
-CFL.add_velocities(('u', 'v'))
+                     max_change=1000, min_change=0.5, max_dt=max_dt, min_dt=min_dt, threshold=0.05)
+CFL.add_velocities(('u', 'psix'))
 
 # Flow properties
 flow = flow_tools.GlobalFlowProperty(solver, cadence=10)
 flow.add_property("sqrt(u*u)", name='U')
+flow.add_property("psix", name='W')
 
 
-run_folder = 'Re_big/ivp/snapshots'
-folder_n = run_folder
-folder_n_sub = 'snapshots'
-folder = 'Re_big/ivp/'
 
 time_yrs = lambda t: round(t/3.154e7,2)
 time_mths = lambda t: round(t/2.628e6,2)
@@ -233,6 +250,7 @@ X, Z = np.meshgrid(z,x )
 def plotting(t_idx):
     fig, ax = plt.subplots(constrained_layout=True)
     # CM= plt.pcolormesh(Z, X, psi_arr[i,:,:], shading='gouraud',cmap='PRGn', vmin=-maxval_psi, vmax=maxval_psi)
+    CS = plt.contour(Z, X, psi_arr[t_idx, :, :], 30, colors='k')
     CM = plt.pcolormesh(Z, X, psi_arr[t_idx, :, :], shading='gouraud', cmap='PRGn')
     cbar = fig.colorbar(CM)
     plt.ylabel('vertical depth')
@@ -241,10 +259,25 @@ def plotting(t_idx):
     plt.savefig(folder + "psi_bigsteptest_t_" + str(t_idx) + '.png')
     plt.close(fig)
 
+    fig, ax = plt.subplots(constrained_layout=True)
+    # CM= plt.pcolormesh(Z, X, psi_arr[i,:,:], shading='gouraud',cmap='PRGn', vmin=-maxval_psi, vmax=maxval_psi)
+    CS = plt.contour(Z, X, v_arr[t_idx, :, :], 30, colors='k')
+    CM = plt.pcolormesh(Z, X, v_arr[t_idx, :, :], shading='gouraud', cmap='PRGn')
+    cbar = fig.colorbar(CM)
+    plt.ylabel('vertical depth')
+    plt.xlabel('periodic x-axis (0,2$\pi$)')
+    plt.title('$v$ at t = ' + str(time_mths(t_arr[t_idx])) + ' months with $\Delta t = $' + str(dt) )
+    plt.savefig(folder + "v_bigsteptest_t_" + str(t_idx) + '.png')
+    plt.close(fig)
+
+
+
 
 # Main loop
 try:
     logger.info('Starting loop')
+    logger.info('Initial dt = ' + str(sci(dt)) + 's with CFL conditions such that max dt = ' + str(sci(max_dt)) + "s and min dt = "
+                + str(sci(min_dt)) + "s")
     while solver.proceed:
         dt = CFL.compute_dt()
         dt = solver.step(dt)
@@ -263,15 +296,27 @@ try:
 
         Jac_psi_v = Jn(t_count)[1]
         Jac_zeta_v = Jn(t_count)[0]
-
+        plotting(t_count)
         if (solver.iteration-1) % 10 == 0:
             logger.info('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
             logger.info(' U = %f' %flow.max('U'))
-            plotting(t_count)
+            logger.info(' W = %f' % flow.max('W'))
+
+
         t_count += 1
+
 except:
     logger.error('Exception raised, triggering end of main loop.')
     raise
-# finally:
-#     solver.log_stats()
+finally:
+    #solver.log_stats()
+    lines = ["PARAMETERS FOR MODEL RUN","(R_e, R_g) = (" + str(Re) + ', ' + str(Rg) + ')',"nu = " + str(Rossby(Re,Rg)[0]), "f = " + str(Rossby(Re,Rg)[1]), "r = " +
+             str(Rossby(Re,Rg)[2]), "tau = " + str(Rossby(Re,Rg)[3]),
+             "L = " + str(L), "H = " +str(H),"h_e = "+ str(h_e), "nx = " + str(nx), "nz = " + str(nz)]
+
+    with open(run_folder + 'read_me.txt', 'w') as f:
+        for line in lines:
+            f.write(line)
+            f.write('\n')
+
 
