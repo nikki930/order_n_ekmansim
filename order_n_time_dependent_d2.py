@@ -68,8 +68,8 @@ Rg=0.1
 print(L)
 
 # Timestepping
-dt = 10
-max_dt = 10*dt
+dt = 1e4
+max_dt = 1e6
 min_dt = 0
 #min_dt = 1e3
 
@@ -184,15 +184,12 @@ problem.add_equation("psiz - dz(psi)=0")  # auxilary
 problem.add_equation("psix - dx(psi)=0")  # auxilary
 problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")  # zeta = grad^2(psi)
 
-problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  +f*u =-Jac_psi_v")
-problem.add_equation(" dt(u) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = -Jac_psi_zeta ")
+problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  +f*u = -(psix * vz - psiz*vx)")
+problem.add_equation(" dt(u) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = -(psix * zetaz - psiz*zetax)")
 
 # Boundary conditions:
-if t_count == 0:
-    problem.add_bc("vz(z='right') = (A/nu)*cos(x*k+ 3.14159/2)")  # wind forcing on 0th order boundary condition
-else:
-    problem.add_bc("vz(z='right') = 0")  # no wind forcing for higher orders
 
+problem.add_bc("vz(z='right') = (A/nu)*cos(x*k+ 3.14159/2)")  # wind forcing on 0th order boundary condition
 problem.add_bc("vz(z='left') = 0")
 problem.add_bc("psi(z='left') = 0")
 problem.add_bc("psi(z='right') = 0")
@@ -207,11 +204,6 @@ logger.info('Solver built')
 x, z = domain.all_grids()
 psi = solver.state['psi']
 zeta = solver.state['zeta']
-
-
-
-
-
 
 # Integration parameters
 solver.stop_sim_time = stop_sim_time
@@ -270,9 +262,6 @@ def plotting(t_idx):
     plt.savefig(folder + "v_bigsteptest_t_" + str(t_idx) + '.png')
     plt.close(fig)
 
-
-
-
 # Main loop
 try:
     logger.info('Starting loop')
@@ -292,16 +281,25 @@ try:
             v_z_arr[t_count, :, :] = np.array(file['tasks']['<vz>'])[t_count,:,:]  # psi
             zeta_x_arr[t_count, :, :] = np.array(file['tasks']['<zetax>'])[t_count,:,:] # psi
             zeta_z_arr[t_count, :, :] = np.array(file['tasks']['<zetaz>'])[t_count,:,:] # psi
-            #t_arr[:] = psi.dims[0]['sim_time']  # time array
 
-        Jac_psi_v = Jn(t_count)[1]
-        Jac_zeta_v = Jn(t_count)[0]
-        plotting(t_count)
+
+        #Jac_psi_v = Jn(t_count)[1]
+        #Jac_zeta_v = Jn(t_count)[0]
+
         if (solver.iteration-1) % 10 == 0:
             logger.info('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
             logger.info(' U = %f' %flow.max('U'))
             logger.info(' W = %f' % flow.max('W'))
+            print('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
+            print(' U = %f' % flow.max('U'))
+            print(' W = %f' % flow.max('W'))
+            plotting(t_count)
 
+        if flow.max('U') > 1.3:
+            logger.error('horizontal velocity exceeds normal threshold at ' + str(solver.iteration) +
+                         'th iteration')
+            print('horizontal velocity exceeds normal threshold at iteration: ' + str(solver.iteration) )
+            break
 
         t_count += 1
 
