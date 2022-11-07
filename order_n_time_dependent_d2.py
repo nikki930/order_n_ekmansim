@@ -27,7 +27,7 @@ from mpi4py import MPI
 import time
 import pathlib
 import h5py
-
+import matplotlib.pyplot as plt
 from dedalus import public as de
 from dedalus.extras import flow_tools
 
@@ -36,8 +36,8 @@ logger = logging.getLogger(__name__)
 
 
 # Parameters
-nx = 512 # fourier resolution
-nz = 128  # chebyshev resolution
+nx = 128 # fourier resolution
+nz = 68  # chebyshev resolution
 
 H = 100  # depth of water in meters
 h_e = 10 #ekman thickness
@@ -54,7 +54,13 @@ Rg=0.1
 
 print(L)
 
-n_snaps=101
+# Timestepping and output
+dt = 1e6
+stop_sim_time = 2*1e8
+fh_mode = 'overwrite'
+
+n_snaps=int(stop_sim_time/(dt)) + 2
+print(n_snaps)
 t_count = 0
 
 psi_arr = np.zeros((n_snaps+1,nx, nz))
@@ -69,6 +75,7 @@ zeta_z_arr = np.zeros((n_snaps+1, nx, nz))
 zeta_x_arr = np.zeros((n_snaps+1, nx, nz))
 v_arr_corrected = np.zeros((n_snaps+1, nx, nz))
 t_arr = np.zeros(n_snaps)
+
 def Jn(t_idx):
     '''
     Calculates the nonlinear terms of order n
@@ -184,10 +191,7 @@ zeta = solver.state['zeta']
 
 
 
-# Timestepping and output
-dt = 1e4/4
-stop_sim_time = 1e6
-fh_mode = 'overwrite'
+
 
 
 # Integration parameters
@@ -195,7 +199,7 @@ solver.stop_sim_time = stop_sim_time
 
 # Analysis
 #snapshots = solver.evaluator.add_file_handler('snapshots', sim_dt=0.25, max_writes=50, mode=fh_mode)
-snapshots = solver.evaluator.add_file_handler('Re_big/ivp/linear/snapshots', iter=1, max_writes=150)
+snapshots = solver.evaluator.add_file_handler('Re_big/ivp/linear/snapshots', iter=1, max_writes=1000)
 snapshots.add_system(solver.state)
 snapshots.add_task("psi", layout='g', name='<psi>')
 snapshots.add_task("v", layout='g', name='<v>') # saving variables
@@ -208,19 +212,37 @@ snapshots.add_task("zetaz", layout='g', name='<zetaz>')
 #solver.evaluator.evaluate_handlers([snapshots], world_time=0, wall_time=0, sim_time=solver.sim_time, timestep=dt, iteration=stop_sim_time/dt)
 
 # CFL
-CFL = flow_tools.CFL(solver, initial_dt=dt, cadence=10, safety=1,
-                     max_change=1.5, min_change=0.5, max_dt=dt+10, min_dt=dt-10, threshold=0.05)
+CFL = flow_tools.CFL(solver, initial_dt=dt, cadence=1, safety=1,
+                     max_change=10, min_change=0.5, max_dt=1e4, min_dt=1e3, threshold=0.05)
 CFL.add_velocities(('u', 'v'))
 
 # Flow properties
 flow = flow_tools.GlobalFlowProperty(solver, cadence=10)
 flow.add_property("sqrt(u*u)", name='U')
 
-# Main loop
 
 run_folder = 'Re_big/ivp/linear/snapshots'
 folder_n = run_folder
 folder_n_sub = 'snapshots'
+folder = 'Re_big/ivp/linear/'
+
+time_yrs = lambda t: round(t/3.154e7,2)
+time_mths = lambda t: round(t/2.628e6,2)
+X, Z = np.meshgrid(z,x )
+
+def plotting(t_idx):
+    fig, ax = plt.subplots(constrained_layout=True)
+    # CM= plt.pcolormesh(Z, X, psi_arr[i,:,:], shading='gouraud',cmap='PRGn', vmin=-maxval_psi, vmax=maxval_psi)
+    CM = plt.pcolormesh(Z, X, psi_arr[t_idx, :, :], shading='gouraud', cmap='PRGn')
+    cbar = fig.colorbar(CM)
+    plt.ylabel('vertical depth')
+    plt.xlabel('periodic x-axis (0,2$\pi$)')
+    plt.title('$\psi$ at t = ' + str(time_mths(t_arr[t_idx])) + ' months with $\Delta t = $' + str(dt) )
+    plt.savefig(folder + "psi_bigsteptest_t_" + str(t_idx) + '.png')
+    plt.close(fig)
+
+
+# Main loop
 try:
     logger.info('Starting loop')
     while solver.proceed:
@@ -245,6 +267,7 @@ try:
         if (solver.iteration-1) % 10 == 0:
             logger.info('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
             logger.info(' U = %f' %flow.max('U'))
+            plotting(t_count)
         t_count += 1
 except:
     logger.error('Exception raised, triggering end of main loop.')
