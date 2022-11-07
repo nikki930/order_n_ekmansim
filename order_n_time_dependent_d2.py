@@ -34,7 +34,7 @@ from dedalus.extras import flow_tools
 import logging
 logger = logging.getLogger(__name__)
 
-
+n_core = int(4)
 # Parameters
 nx = 512 # fourier resolution
 nz = 128  # chebyshev resolution
@@ -53,21 +53,26 @@ Re = 1.6
 Rg=0.1
 
 print(L)
+# Timestepping and output
+dt = 1e4/4
+stop_sim_time = 1e7
+fh_mode = 'overwrite'
 
-n_snaps=101
+n_snaps=int(stop_sim_time/dt) + 1
+print(n_snaps)
 t_count = 0
 
-psi_arr = np.zeros((n_snaps+1,nx, nz))
-psi_x_arr = np.zeros((n_snaps+1,nx, nz))
-psi_z_arr = np.zeros((n_snaps+1,nx, nz))
-psi_arr_corrected= np.zeros((n_snaps+1,nx, nz))
-v_arr = np.zeros((n_snaps+1, nx, nz))
-v_z_arr = np.zeros((n_snaps+1, nx, nz))
-v_x_arr = np.zeros((n_snaps+1, nx, nz))
-zeta_arr = np.zeros((n_snaps+1, nx, nz))
-zeta_z_arr = np.zeros((n_snaps+1, nx, nz))
-zeta_x_arr = np.zeros((n_snaps+1, nx, nz))
-v_arr_corrected = np.zeros((n_snaps+1, nx, nz))
+psi_arr = np.zeros((n_snaps+1,nx, int(nz/n_core)))
+psi_x_arr = np.zeros((n_snaps+1,nx, int(nz/n_core)))
+psi_z_arr = np.zeros((n_snaps+1,nx, int(nz/n_core)))
+psi_arr_corrected= np.zeros((n_snaps+1,nx, int(nz/n_core)))
+v_arr = np.zeros((n_snaps+1, nx, int(nz/n_core)))
+v_z_arr = np.zeros((n_snaps+1, nx, int(nz/n_core)))
+v_x_arr = np.zeros((n_snaps+1, nx, int(nz/n_core)))
+zeta_arr = np.zeros((n_snaps+1, nx, int(nz/n_core)))
+zeta_z_arr = np.zeros((n_snaps+1, nx, int(nz/n_core)))
+zeta_x_arr = np.zeros((n_snaps+1, nx, int(nz/n_core)))
+v_arr_corrected = np.zeros((n_snaps+1, nx, int(nz/n_core)))
 t_arr = np.zeros(n_snaps)
 def Jn(t_idx):
     '''
@@ -184,10 +189,7 @@ zeta = solver.state['zeta']
 
 
 
-# Timestepping and output
-dt = 1e4/4
-stop_sim_time = 1e6
-fh_mode = 'overwrite'
+
 
 
 # Integration parameters
@@ -195,7 +197,7 @@ solver.stop_sim_time = stop_sim_time
 
 # Analysis
 #snapshots = solver.evaluator.add_file_handler('snapshots', sim_dt=0.25, max_writes=50, mode=fh_mode)
-snapshots = solver.evaluator.add_file_handler('Re_big/ivp/linear/snapshots', iter=1, max_writes=150)
+snapshots = solver.evaluator.add_file_handler('Re_big/ivp/snapshots', iter=1, max_writes=1000)
 snapshots.add_system(solver.state)
 snapshots.add_task("psi", layout='g', name='<psi>')
 snapshots.add_task("v", layout='g', name='<v>') # saving variables
@@ -218,7 +220,7 @@ flow.add_property("sqrt(u*u)", name='U')
 
 # Main loop
 
-run_folder = 'Re_big/ivp/linear/snapshots'
+run_folder = 'Re_big/ivp/snapshots'
 folder_n = run_folder
 folder_n_sub = 'snapshots'
 try:
