@@ -49,7 +49,7 @@ logger = logging.getLogger('nonlin_ekman_ivp')
 sci = lambda n: "{:.2e}".format(n)
 n_core = int(1)
 # Parameters
-nx = 128 # fourier resolution
+nx = 512 # fourier resolution
 nz = 68  # chebyshev resolution
 
 H = 100  # depth of water in meters
@@ -62,22 +62,22 @@ L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
 k = (2 * np.pi) / (L)
 
-Re = 1.6
+Re = 1.4
 Rg=0.1
 
 print(L)
 
 # Timestepping
-dt = 1000
-max_dt = 1e6
+dt = 500
+max_dt = 1e5
 min_dt = 0
-#min_dt = 1e3
 
-#stop_sim_time = 2*1e8
-stop_sim_time=1e6
+stop_sim_time=6 * 1e6
+#stop_sim_time=2 * 1e4
 fh_mode = 'overwrite'
 
-n_snaps=int(stop_sim_time/(dt))
+#n_snaps=int(stop_sim_time/(dt))
+n_snaps = int(250)
 print(n_snaps)
 t_count = 0
 
@@ -130,7 +130,11 @@ def Jn(t_idx):
         return Jac_temp1, Jac_temp2
 
 def Rossby(R_e, R_g):
-
+    """
+    determines viscosity, wind forcing magnitude, damping parameter and coriolis parameter based on a 
+    nondimensionalization done analytically in order to be able to give the function Ekman Rossby and Geostrophic 
+    Rossby numbers and have it return reasonable values for the aforementioned variables.
+    """
     R_e_temp = R_e / (2 * np.pi)
     R_g_temp = R_g / (2 * np.pi)
 
@@ -147,7 +151,6 @@ def Rossby(R_e, R_g):
     # print('tau=', tau_value_temp)
     # print('r=', r_value_temp)
     # print('nu=', nu_value_temp)
-
     return nu_value_temp,f_value_temp,r_value_temp,tau_value_temp
 
 print(Rossby(Re,Rg))
@@ -161,7 +164,7 @@ problem = de.IVP(domain, variables=['psi', 'u', 'v', 'vx',
                                      'vz', 'zeta',
                                      'zetaz', 'zetax', 'psix', 'psiz', 'zetazz'])
 
-a_visc = ((300 / 2) ** 2) / (h_e ** 2)
+a_visc = ((1000/ 2) ** 2) / (h_e ** 2)
 # setting up all parameters
 problem.parameters['nu'] = Rossby(Re,Rg)[0]  # viscosity
 problem.parameters['nu_h'] = a_visc *  Rossby(Re,Rg)[0]
@@ -170,8 +173,9 @@ problem.parameters['r'] = Rossby(Re,Rg)[2]   # damping param
 problem.parameters['A'] = Rossby(Re,Rg)[3]   # forcing param
 problem.parameters['H'] = H
 problem.parameters['k'] = k
-problem.parameters['Jac_psi_zeta'] = Jn(t_count)[0]
-problem.parameters['Jac_psi_v'] = Jn(t_count)[1]
+#problem.parameters['Jac_psi_zeta'] = Jn(t_count)[0]
+#problem.parameters['Jac_psi_v'] = Jn(t_count)[1]
+problem.parameters['F'] = F = 1
 
 # auxliary equations:
 problem.add_equation("u - psiz = 0")
@@ -184,11 +188,13 @@ problem.add_equation("psiz - dz(psi)=0")  # auxilary
 problem.add_equation("psix - dx(psi)=0")  # auxilary
 problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")  # zeta = grad^2(psi)
 
-problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  +f*u = -(psix * vz - psiz*vx)")
-problem.add_equation(" dt(u) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = -(psix * zetaz - psiz*zetax)")
+#problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  +f*u = -(psix * vz - psiz*vx)")
+#problem.add_equation(" dt(u) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = -(psix * zetaz - psiz*zetax)")
+
+problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) + r*(1/H)*integ(v,'z')  +f*u + F*v= -(psix * vz - psiz*vx)")
+problem.add_equation(" dt(zeta) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = -(psix * zetaz - psiz*zetax)")
 
 # Boundary conditions:
-
 problem.add_bc("vz(z='right') = (A/nu)*cos(x*k+ 3.14159/2)")  # wind forcing on 0th order boundary condition
 problem.add_bc("vz(z='left') = 0")
 problem.add_bc("psi(z='left') = 0")
@@ -197,13 +203,25 @@ problem.add_bc("dz(u)(z='left') = 0")
 problem.add_bc("dz(u)(z='right') = 0")
 
 # Build solver
-solver = problem.build_solver(de.timesteppers.RK222)
+solver = problem.build_solver(de.timesteppers.SBDF1)
 logger.info('Solver built')
 
 # Initial conditions
 x, z = domain.all_grids()
 psi = solver.state['psi']
 zeta = solver.state['zeta']
+
+# Random perturbations, initialized globally for same results in parallel
+gshape = domain.dist.grid_layout.global_shape(scales=1)
+slices = domain.dist.grid_layout.slices(scales=1)
+rand = np.random.RandomState(seed=42)
+noise = rand.standard_normal(gshape)[slices]
+
+# Linear background + perturbations damped at walls
+zb, zt = z_basis.interval
+pert = 1e-3 * noise * (zt - z) * (z - zb)
+psi['g'] = F * pert
+
 
 # Integration parameters
 solver.stop_sim_time = stop_sim_time
@@ -304,7 +322,7 @@ try:
             print('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
             print(' U = %f' % flow.max('U'))
             print(' W = %f' % flow.max('W'))
-        plotting(t_count)
+            plotting(t_count)
 
         if flow.max('U') > 1.3:
             logger.error('horizontal velocity exceeds normal threshold at ' + str(solver.iteration) +
