@@ -68,11 +68,11 @@ Rg=0.1
 print(L)
 
 # Timestepping
-dt = 500
+dt = 1000
 max_dt = 1e5
 min_dt = 0
 
-stop_sim_time=6 * 1e6
+stop_sim_time=6 * 1e7
 #stop_sim_time=2 * 1e4
 fh_mode = 'overwrite'
 
@@ -164,7 +164,7 @@ problem = de.IVP(domain, variables=['psi', 'u', 'v', 'vx',
                                      'vz', 'zeta',
                                      'zetaz', 'zetax', 'psix', 'psiz', 'zetazz'])
 
-a_visc = ((1000/ 2) ** 2) / (h_e ** 2)
+a_visc = ((500/ 2) ** 2) / (h_e ** 2)
 # setting up all parameters
 problem.parameters['nu'] = Rossby(Re,Rg)[0]  # viscosity
 problem.parameters['nu_h'] = a_visc *  Rossby(Re,Rg)[0]
@@ -191,7 +191,7 @@ problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")  # zeta = grad^2(psi)
 #problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  +f*u = -(psix * vz - psiz*vx)")
 #problem.add_equation(" dt(u) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = -(psix * zetaz - psiz*zetax)")
 
-problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) + r*(1/H)*integ(v,'z')  +f*u + F*v= -(psix * vz - psiz*vx)")
+problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) + r*(1/H)*integ(v,'z')  +f*u = -(psix * vz - psiz*vx)")
 problem.add_equation(" dt(zeta) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = -(psix * zetaz - psiz*zetax)")
 
 # Boundary conditions:
@@ -208,19 +208,18 @@ logger.info('Solver built')
 
 # Initial conditions
 x, z = domain.all_grids()
-psi = solver.state['psi']
+v = solver.state['v']
 zeta = solver.state['zeta']
 
-# Random perturbations, initialized globally for same results in parallel
+# Initial Condition: Adding random perturbations damped at walls
 gshape = domain.dist.grid_layout.global_shape(scales=1)
 slices = domain.dist.grid_layout.slices(scales=1)
 rand = np.random.RandomState(seed=42)
 noise = rand.standard_normal(gshape)[slices]
-
-# Linear background + perturbations damped at walls
 zb, zt = z_basis.interval
-pert = 1e-3 * noise * (zt - z) * (z - zb)
-psi['g'] = F * pert
+#v['g'][0] = 1/2 + 1/2 * (np.tanh((z-0.5)/0.1) - np.tanh((z+0.5)/0.1))
+pert = 1e-4 * noise * (zt - z) * (z - zb) #noise
+v['g'] +=  pert #adding noise to initial v
 
 
 # Integration parameters
@@ -252,7 +251,7 @@ flow.add_property("sqrt(u*u)", name='U')
 flow.add_property("psix", name='W')
 
 
-
+time_days = lambda t: round(t/86400,2)
 time_yrs = lambda t: round(t/3.154e7,2)
 time_mths = lambda t: round(t/2.628e6,2)
 X, Z = np.meshgrid(z,x)
@@ -265,18 +264,18 @@ def plotting(t_idx):
     cbar = fig.colorbar(CM)
     plt.ylabel('vertical depth')
     plt.xlabel('periodic x-axis (0,2$\pi$)')
-    plt.title('$\psi$ at t = ' + str(time_mths(t_arr[t_idx])) + ' months with $\Delta t = $' + str(dt) )
+    plt.title('$\psi$ at t = ' + str(time_days(t_arr[t_idx])) + ' months with $\Delta t = $' + str(dt) )
     plt.savefig(folder + "psi_bigsteptest_t_" + str(t_idx) + '.png')
     plt.close(fig)
 
     fig, ax = plt.subplots(constrained_layout=True)
     # CM= plt.pcolormesh(Z, X, psi_arr[i,:,:], shading='gouraud',cmap='PRGn', vmin=-maxval_psi, vmax=maxval_psi)
-    CS = plt.contour(Z, X, v_arr[t_idx, :, :], 30, colors='k')
+    #CS = plt.contour(Z, X, v_arr[t_idx, :, :], 30, colors='k')
     CM = plt.pcolormesh(Z, X, v_arr[t_idx, :, :], shading='gouraud', cmap='PRGn')
     cbar = fig.colorbar(CM)
     plt.ylabel('vertical depth')
     plt.xlabel('periodic x-axis (0,2$\pi$)')
-    plt.title('$v$ at t = ' + str(time_mths(t_arr[t_idx])) + ' months with $\Delta t = $' + str(dt) )
+    plt.title('$v$ at t = ' + str(time_days(t_arr[t_idx])) + ' months with $\Delta t = $' + str(dt) )
     plt.savefig(folder + "v_bigsteptest_t_" + str(t_idx) + '.png')
     plt.close(fig)
 
@@ -287,7 +286,7 @@ def plotting(t_idx):
     cbar = fig.colorbar(CM)
     plt.ylabel('vertical depth')
     plt.xlabel('periodic x-axis (0,2$\pi$)')
-    plt.title('$w$ at t = ' + str(time_mths(t_arr[t_idx])) + ' months with $\Delta t = $' + str(dt) )
+    plt.title('$w$ at t = ' + str(time_days(t_arr[t_idx])) + ' months with $\Delta t = $' + str(dt) )
     plt.savefig(folder + "w_bigsteptest_t_" + str(t_idx) + '.png')
     plt.close(fig)
 
@@ -310,7 +309,7 @@ try:
             v_z_arr[t_count, :, :] = np.array(file['tasks']['<vz>'])[t_count,:,:]  # psi
             zeta_x_arr[t_count, :, :] = np.array(file['tasks']['<zetax>'])[t_count,:,:] # psi
             zeta_z_arr[t_count, :, :] = np.array(file['tasks']['<zetaz>'])[t_count,:,:] # psi
-
+            t_arr[t_count] = psi.dims[0]['sim_time'][t_count]
 
         #Jac_psi_v = Jn(t_count)[1]
         #Jac_zeta_v = Jn(t_count)[0]
@@ -339,7 +338,7 @@ finally:
     #solver.log_stats()
     lines = ["PARAMETERS FOR MODEL RUN","(R_e, R_g) = (" + str(Re) + ', ' + str(Rg) + ')',"nu = " + str(Rossby(Re,Rg)[0]), "f = " + str(Rossby(Re,Rg)[1]), "r = " +
              str(Rossby(Re,Rg)[2]), "tau = " + str(Rossby(Re,Rg)[3]),
-             "L = " + str(L), "H = " +str(H),"h_e = "+ str(h_e), "nx = " + str(nx), "nz = " + str(nz)]
+             "L = " + str(L), "H = " +str(H),"h_e = "+ str(h_e), "nx = " + str(nx), "nz = " + str(nz), "a_visc = " + str(a_visc)]
 
     with open(run_folder + 'read_me.txt', 'w') as f:
         for line in lines:
