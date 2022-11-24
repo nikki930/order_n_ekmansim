@@ -62,7 +62,7 @@ L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
 k = (2 * np.pi) / (L)
 
-Re = 1.4
+Re = 1.75
 Rg=0.1
 
 print(L)
@@ -164,7 +164,7 @@ problem = de.IVP(domain, variables=['psi', 'u', 'v', 'vx',
                                      'vz', 'zeta',
                                      'zetaz', 'zetax', 'psix', 'psiz', 'zetazz'])
 
-a_visc = ((500/ 2) ** 2) / (h_e ** 2)
+a_visc = ((400/ 2) ** 2) / (h_e ** 2)
 # setting up all parameters
 problem.parameters['nu'] = Rossby(Re,Rg)[0]  # viscosity
 problem.parameters['nu_h'] = a_visc *  Rossby(Re,Rg)[0]
@@ -175,7 +175,7 @@ problem.parameters['H'] = H
 problem.parameters['k'] = k
 #problem.parameters['Jac_psi_zeta'] = Jn(t_count)[0]
 #problem.parameters['Jac_psi_v'] = Jn(t_count)[1]
-problem.parameters['F'] = F = 1
+
 
 # auxliary equations:
 problem.add_equation("u - psiz = 0")
@@ -264,7 +264,7 @@ def plotting(t_idx):
     cbar = fig.colorbar(CM)
     plt.ylabel('vertical depth')
     plt.xlabel('periodic x-axis (0,2$\pi$)')
-    plt.title('$\psi$ at t = ' + str(time_days(t_arr[t_idx])) + ' months with $\Delta t = $' + str(dt) )
+    plt.title('$\psi$ at t = ' + str(time_days(t_arr[t_idx])) + ' days with $\Delta t = $' + str(dt) )
     plt.savefig(folder + "psi_bigsteptest_t_" + str(t_idx) + '.png')
     plt.close(fig)
 
@@ -275,7 +275,7 @@ def plotting(t_idx):
     cbar = fig.colorbar(CM)
     plt.ylabel('vertical depth')
     plt.xlabel('periodic x-axis (0,2$\pi$)')
-    plt.title('$v$ at t = ' + str(time_days(t_arr[t_idx])) + ' months with $\Delta t = $' + str(dt) )
+    plt.title('$v$ at t = ' + str(time_days(t_arr[t_idx])) + ' days with $\Delta t = $' + str(dt) )
     plt.savefig(folder + "v_bigsteptest_t_" + str(t_idx) + '.png')
     plt.close(fig)
 
@@ -286,7 +286,7 @@ def plotting(t_idx):
     cbar = fig.colorbar(CM)
     plt.ylabel('vertical depth')
     plt.xlabel('periodic x-axis (0,2$\pi$)')
-    plt.title('$w$ at t = ' + str(time_days(t_arr[t_idx])) + ' months with $\Delta t = $' + str(dt) )
+    plt.title('$w$ at t = ' + str(time_days(t_arr[t_idx])) + ' days with $\Delta t = $' + str(dt) )
     plt.savefig(folder + "w_bigsteptest_t_" + str(t_idx) + '.png')
     plt.close(fig)
 
@@ -333,6 +333,14 @@ try:
 
 except:
     logger.error('Exception raised, triggering end of main loop.')
+    lines = ["PARAMETERS FOR MODEL RUN","(R_e, R_g) = (" + str(Re) + ', ' + str(Rg) + ')',"nu = " + str(Rossby(Re,Rg)[0]), "f = " + str(Rossby(Re,Rg)[1]), "r = " +
+             str(Rossby(Re,Rg)[2]), "tau = " + str(Rossby(Re,Rg)[3]),
+             "L = " + str(L), "H = " +str(H),"h_e = "+ str(h_e), "nx = " + str(nx), "nz = " + str(nz), "a_visc = " + str(a_visc)]
+
+    with open(run_folder + 'read_me.txt', 'w') as f:
+        for line in lines:
+            f.write(line)
+            f.write('\n')
     raise
 finally:
     #solver.log_stats()
