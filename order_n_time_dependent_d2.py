@@ -53,9 +53,9 @@ nx = 512 # fourier resolution
 nz = 68  # chebyshev resolution
 
 H = 100  # depth of water in meters
-h_e = 10 #ekman thickness
+h_e = 1 #ekman thickness
 dh = h_e/H  # dh = ekman thickness divided by H
-da = 0.01  # aspect ratio = ratio of height to length
+da = 0.1  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
 
 L_func = lambda H, delta_a: H / delta_a
@@ -164,7 +164,7 @@ problem = de.IVP(domain, variables=['psi', 'u', 'v', 'vx',
                                      'vz', 'zeta',
                                      'zetaz', 'zetax', 'psix', 'psiz', 'zetazz'])
 
-a_visc = ((400/ 2) ** 2) / (h_e ** 2)
+a_visc = ((350/ 2) ** 2) / (h_e ** 2)
 # setting up all parameters
 problem.parameters['nu'] = Rossby(Re,Rg)[0]  # viscosity
 problem.parameters['nu_h'] = a_visc *  Rossby(Re,Rg)[0]
