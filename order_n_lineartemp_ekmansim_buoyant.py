@@ -202,8 +202,8 @@ class Solver_n:
         #print("n_solve=",self.n)
 
         problem = de.LBVP(domain, variables=['psi', 'u', 'v', 'vx',
-                                             'vz', 'zeta',
-                                             'zetaz', 'zetax', 'psix', 'psiz','zetazz','b','bz'])
+                                             'vz', 'zeta', 'zetax',
+                                             'zetaz', 'psix', 'psiz','zetazz','b','bz'])
 
         a_visc = ((300/2)**2)/(h_e**2)
         # setting up all parameters
@@ -214,30 +214,30 @@ class Solver_n:
         problem.parameters['A'] = self.tau  # forcing param
         problem.parameters['H'] = H
         problem.parameters['k'] = k
-        problem.parameters['N'] = self.f*0.1
+        problem.parameters['N'] = self.f*0.5
 
 
-        problem.parameters['Jac'] = self.Jn(self.n)[0]  # self.j = self.j2 = 0 for 0th order solution
+        problem.parameters['Jac_psi_zeta'] = self.Jn(self.n)[0]  # self.j = self.j2 = 0 for 0th order solution
         problem.parameters['Jac_psi_v'] = self.Jn(self.n)[1]
         problem.parameters['Jac_psi_b'] = self.Jn(self.n)[2]
 
         # axuliary equations:
         problem.add_equation("bz - dz(b) = 0")# auxilary
-
         problem.add_equation("u - psiz = 0")
         problem.add_equation("vz - dz(v) = 0")  # auxilary
         problem.add_equation("vx - dx(v) = 0")  # auxilary
+        problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")
         problem.add_equation("zetaz - dz(zeta)=0")  # auxilary
         problem.add_equation("zetazz - dz(zetaz)=0")  # auxilary
         problem.add_equation("zetax - dx(zeta)=0")  # auxilary
         problem.add_equation("psiz - dz(psi)=0")  # auxilary
         problem.add_equation("psix - dx(psi)=0")  # auxilary
-        problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")  # zeta = grad^2(psi)
 
-        problem.add_equation("(dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  -f*u  +psix*(N**2) = Jac_psi_v")  # nu* grad^2 v  - fu=0
-        problem.add_equation("(dx(dx(zeta))*nu_h + zetazz*nu) + f*vz - dx(b)= Jac") # nu* grad^2 zeta + fv_z=0
-        problem.add_equation("(dx(dx(b))*nu_h + dz(bz)*nu) + (N**2)*psix= Jac_psi_b")
-        problem.add_equation("integ(b,'z')=0")
+
+        problem.add_equation("(dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  -f*u  = Jac_psi_v")  # nu* grad^2 v  - fu=0
+        problem.add_equation("(dx(dx(zeta))*nu_h + zetazz*nu) + f*vz - dx(b)= Jac_psi_zeta") # nu* grad^2 zeta + fv_z=0
+        problem.add_equation("(dx(dx(b))*nu_h + dz(bz)*nu) + (N**2)*psix + integ(integ(b,'z'),'x') = Jac_psi_b")
+        #problem.add_equation("integ(integ(b,'z'),'x')=0")
 
         # for 0th order
         if self.n == 0:
@@ -249,8 +249,8 @@ class Solver_n:
         problem.add_bc("psi(z='left') = 0")
         problem.add_bc("psi(z='right') = 0")
         problem.add_bc("vz(z='left') = 0")
-        problem.add_bc("dz(u)(z='left') = 0")
-        problem.add_bc("dz(u)(z='right') = 0")
+        problem.add_bc("zeta(z='left') = 0")
+        problem.add_bc("zeta(z='right') = 0")
         problem.add_bc("bz(z='right') = 0")
         problem.add_bc("bz(z='left') = 0")
 
@@ -290,7 +290,7 @@ class Solver_n:
         out.add_task("zetax", layout='g', name='<zetax>')  # saving variables
         out.add_task("zetaz", layout='g', name='<zetaz>')  # saving variables
         out.add_task("zetazz", layout='g', name='<zetazz>')
-        out.add_task("zetaxx", layout='g', name='<zetaxx>')# saving variables
+        out.add_task("dx(zetax)", layout='g', name='<zetaxx>')# saving variables
         out.add_task("zeta", layout='g', name='<zeta>')  # saving variables
         out.add_task("u", layout='g', name='<u>')
         out.add_task("vx", layout='g', name='<vx>')
@@ -300,7 +300,7 @@ class Solver_n:
         out.add_task("u*vx  + psix*vz", layout='g', name='<J_psi_v>')
         out.add_task("b", layout='g', name='<b>')  # saving variables
         out.add_task("bz", layout='g', name='<bz>')  # saving variables
-        out.add_task("bx", layout='g', name='<bx>')  # saving variables
+        out.add_task("dx(b)", layout='g', name='<bx>')  # saving variables
         # evaluates the tasks declared above:
         solver.evaluator.evaluate_handlers([out], world_time=0, wall_time=0, sim_time=0, timestep=0, iteration=0)
 
@@ -367,11 +367,6 @@ class Solver_n:
         plt.close(fig)
 
         max_vals[self.n] = np.amax(psi_arr[self.n, :, :])
-
-
-
-
-
 
 
 """
