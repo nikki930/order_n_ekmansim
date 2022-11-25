@@ -16,16 +16,16 @@ from dedalus.extras import plot_tools
 de.logging_setup.rootlogger.setLevel('ERROR')  # suppress logging msgs
 
 nx = 512 # fourier resolution
-nz = 128  # chebyshev resolution
+nz = 68  # chebyshev resolution
 
-H = 10  # depth of water in meters
-h_e = 1 #ekman thickness
+H = 200  # depth of water in meters
+h_e = 20 #ekman thickness
 
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
 
-N = 100 # the order up to which the model runs
+N = 50 # the order up to which the model runs
 
 L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
@@ -182,17 +182,20 @@ class Solver_n:
 
         global solver
         global state
+        global a_visc, alpha, A_h
 
         #print("n_solve=",self.n)
 
         problem = de.LBVP(domain, variables=['psi', 'u', 'v', 'vx',
                                              'vz', 'zeta',
                                              'zetaz', 'zetax', 'psix', 'psiz','zetazz'])
-
-        a_visc = ((300/2)**2)/(h_e**2)
+        alpha = 350
+        a_visc = ((alpha/2)**2)/(h_e**2)
+        A_h = (self.tau/(self.f*h_e)) * 20 *(L / nx)
         # setting up all parameters
         problem.parameters['nu'] = self.nu  # viscosity
-        problem.parameters['nu_h'] = a_visc * self.nu
+        #problem.parameters['nu_h'] = a_visc * self.nu
+        problem.parameters['nu_h'] = A_h
         problem.parameters['f'] = self.f  # coriolis param
         problem.parameters['r'] = self.r  # damping param
         problem.parameters['A'] = self.tau  # forcing param
@@ -409,7 +412,8 @@ if __name__ == "__main__":
             print("Divergent for R_E = " + str(j) + " and R_G = " + str(R_g) + " at order n = " + str(i))
             print("---------------------------------------------------------------------")
             print("-------------------- PARAMETERS USED -------------------------")
-            print("nu = " , Rossby(j,R_g)[0])
+            print("A_v = " , Rossby(j,R_g)[0])
+            print("A_h = ", A_h)
             print("f = " , Rossby(j,R_g)[1])
             print("r = " , Rossby(j,R_g)[2])
             print("tau = " , Rossby(j,R_g)[3])
@@ -427,7 +431,9 @@ if __name__ == "__main__":
         print("---------------------------------------------------------------------")
         print("---------------------------------------------------------------------")
         print("-------------------- PARAMETERS USED -------------------------")
-        print("nu = " , Rossby(j,R_g)[0])
+        print("A_v = " , Rossby(j,R_g)[0])
+        #print("nu_h = ", a_visc * Rossby(j, R_g)[0])
+        print("A_h = ", A_h)
         print("f = " , Rossby(j,R_g)[1])
         print("r = " , Rossby(j,R_g)[2])
         print("tau = " , Rossby(j,R_g)[3])
@@ -448,7 +454,7 @@ if __name__ == "__main__":
     print("Total Runtime: --- %s seconds ---" % (time.time() - start_time))
 
     R_e = ek_rossby_vals[0]
-    lines = ["PARAMETERS FOR MODEL RUN","(R_e, R_g) = (" + str(R_e) + ', ' + str(R_g) + ')',"nu = " + str(Rossby(R_e,R_g)[0]), "f = " + str(Rossby(R_e,R_g)[1]), "r = " +
+    lines = ["PARAMETERS FOR MODEL RUN","(R_e, R_g) = (" + str(R_e) + ', ' + str(R_g) + ')',"A_v = " + str(Rossby(R_e,R_g)[0]),"A_h = " + str(A_h), "f = " + str(Rossby(R_e,R_g)[1]), "r = " +
              str(Rossby(R_e,R_g)[2]), "tau = " + str(Rossby(R_e,R_g)[3]),
              "L = " + str(L), "H = " +str(H),"h_e = "+ str(h_e), "nx = " + str(nx), "nz = " + str(nz), "N = " + str(N)]
 
