@@ -1,13 +1,11 @@
 """
-Dedalus script for 2D Rayleigh-Benard convection.
-This script uses a Fourier basis in the x direction with periodic boundary
-conditions.  The equations are scaled in units of the buoyancy time (Fr = 1).
+
 This script can be ran serially or in parallel, and uses the built-in analysis
 framework to save data snapshots in HDF5 files.  The `merge_procs` command can
 be used to merge distributed analysis sets from parallel runs, and the
 `plot_slices.py` script can be used to plot the snapshots.
 To run, merge, and plot using 4 processes, for instance, you could use:
-    $ mpiexec -n 2 order_n_time_dependent_d2.py
+    $ mpiexec -n 2 python3 order_n_time_dependent_d2.py
     $ mpiexec -n 2 python3 -m dedalus merge_procs snapshots
     $ mpiexec -n 2 python3 plot_slices.py snapshots/*.h5
 This script can restart the simulation from the last save of the original
@@ -52,10 +50,10 @@ n_core = int(1)
 nx = 512 # fourier resolution
 nz = 68  # chebyshev resolution
 
-H = 100  # depth of water in meters
-h_e = 1 #ekman thickness
+H = 200  # depth of water in meters
+h_e = 20 #ekman thickness
 dh = h_e/H  # dh = ekman thickness divided by H
-da = 0.1  # aspect ratio = ratio of height to length
+da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
 
 L_func = lambda H, delta_a: H / delta_a
@@ -72,12 +70,12 @@ dt = 1000
 max_dt = 1e5
 min_dt = 0
 
-stop_sim_time=6 * 1e7
+stop_sim_time=8 * 1e4
 #stop_sim_time=2 * 1e4
 fh_mode = 'overwrite'
 
 #n_snaps=int(stop_sim_time/(dt))
-n_snaps = int(250)
+n_snaps = int(600)
 print(n_snaps)
 t_count = 0
 
@@ -164,17 +162,18 @@ problem = de.IVP(domain, variables=['psi', 'u', 'v', 'vx',
                                      'vz', 'zeta',
                                      'zetaz', 'zetax', 'psix', 'psiz', 'zetazz'])
 
-a_visc = ((350/ 2) ** 2) / (h_e ** 2)
+#a_visc = ((350/ 2) ** 2) / (h_e ** 2)
+n_visc = 25
+A_h = (Rossby(Re,Rg)[3]/(Rossby(Re,Rg)[1]*h_e)) * n_visc *(L / nx)
 # setting up all parameters
 problem.parameters['nu'] = Rossby(Re,Rg)[0]  # viscosity
-problem.parameters['nu_h'] = a_visc *  Rossby(Re,Rg)[0]
+problem.parameters['nu_h'] = A_h
 problem.parameters['f'] = Rossby(Re,Rg)[1]   # coriolis param
 problem.parameters['r'] = Rossby(Re,Rg)[2]   # damping param
 problem.parameters['A'] = Rossby(Re,Rg)[3]   # forcing param
 problem.parameters['H'] = H
 problem.parameters['k'] = k
-#problem.parameters['Jac_psi_zeta'] = Jn(t_count)[0]
-#problem.parameters['Jac_psi_v'] = Jn(t_count)[1]
+
 
 
 # auxliary equations:
@@ -187,9 +186,6 @@ problem.add_equation("zetax - dx(zeta)=0")  # auxilary
 problem.add_equation("psiz - dz(psi)=0")  # auxilary
 problem.add_equation("psix - dx(psi)=0")  # auxilary
 problem.add_equation("zeta - dz(u) - dx(dx(psi))=0")  # zeta = grad^2(psi)
-
-#problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) - r*(1/H)*integ(v,'z')  +f*u = -(psix * vz - psiz*vx)")
-#problem.add_equation(" dt(u) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = -(psix * zetaz - psiz*zetax)")
 
 problem.add_equation(" dt(v) - (dx(dx(v))*nu_h + dz(vz)*nu) + r*(1/H)*integ(v,'z')  +f*u = -(psix * vz - psiz*vx)")
 problem.add_equation(" dt(zeta) - (dx(dx(zeta))*nu_h + zetazz*nu) - f*vz = -(psix * zetaz - psiz*zetax)")
@@ -218,7 +214,7 @@ rand = np.random.RandomState(seed=42)
 noise = rand.standard_normal(gshape)[slices]
 zb, zt = z_basis.interval
 #v['g'][0] = 1/2 + 1/2 * (np.tanh((z-0.5)/0.1) - np.tanh((z+0.5)/0.1))
-pert = 1e-4 * noise * (zt - z) * (z - zb) #noise
+pert = 1e-3 * noise * (zt - z) * (z - zb) #noise
 v['g'] +=  pert #adding noise to initial v
 
 
@@ -298,21 +294,19 @@ try:
     while solver.proceed:
         dt = CFL.compute_dt()
         dt = solver.step(dt)
-        with h5py.File(folder_n + '/' + folder_n_sub + '_s1/' + folder_n_sub + '_s1_p0.h5',
-                       mode='r') as file:  # reading file
-            psi = file['tasks']['<psi>']
-            psi_arr[t_count, :, :] = np.array(file['tasks']['<psi>'])[t_count,:,:]  # psi
-            v_arr[t_count, :, :] = np.array(file['tasks']['<v>'])[t_count,:,:]  # psi
-            psi_x_arr[t_count, :, :] = np.array(file['tasks']['<psix>'])[t_count,:,:]  # psi
-            psi_z_arr[t_count, :, :] = np.array(file['tasks']['<psiz>'])[t_count,:,:]  # psi
-            v_x_arr[t_count, :, :] = np.array(file['tasks']['<vx>'])[t_count,:,:]  # psi
-            v_z_arr[t_count, :, :] = np.array(file['tasks']['<vz>'])[t_count,:,:]  # psi
-            zeta_x_arr[t_count, :, :] = np.array(file['tasks']['<zetax>'])[t_count,:,:] # psi
-            zeta_z_arr[t_count, :, :] = np.array(file['tasks']['<zetaz>'])[t_count,:,:] # psi
-            t_arr[t_count] = psi.dims[0]['sim_time'][t_count]
+        # with h5py.File(folder_n + '/' + folder_n_sub + '_s1/' + folder_n_sub + '_s1_p0.h5',
+        #                mode='r') as file:  # reading file
+        #     psi = file['tasks']['<psi>']
+        #     psi_arr[t_count, :, :] = np.array(file['tasks']['<psi>'])[t_count,:,:]  # psi
+        #     v_arr[t_count, :, :] = np.array(file['tasks']['<v>'])[t_count,:,:]  # psi
+        #     psi_x_arr[t_count, :, :] = np.array(file['tasks']['<psix>'])[t_count,:,:]  # psi
+        #     psi_z_arr[t_count, :, :] = np.array(file['tasks']['<psiz>'])[t_count,:,:]  # psi
+        #     v_x_arr[t_count, :, :] = np.array(file['tasks']['<vx>'])[t_count,:,:]  # psi
+        #     v_z_arr[t_count, :, :] = np.array(file['tasks']['<vz>'])[t_count,:,:]  # psi
+        #     zeta_x_arr[t_count, :, :] = np.array(file['tasks']['<zetax>'])[t_count,:,:] # psi
+        #     zeta_z_arr[t_count, :, :] = np.array(file['tasks']['<zetaz>'])[t_count,:,:] # psi
+        #     t_arr[t_count] = psi.dims[0]['sim_time'][t_count]
 
-        #Jac_psi_v = Jn(t_count)[1]
-        #Jac_zeta_v = Jn(t_count)[0]
 
         if (solver.iteration-1) % 10 == 0:
             logger.info('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
@@ -321,7 +315,7 @@ try:
             print('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
             print(' U = %f' % flow.max('U'))
             print(' W = %f' % flow.max('W'))
-            plotting(t_count)
+            #plotting(t_count)
 
         if flow.max('U') > 1.3:
             logger.error('horizontal velocity exceeds normal threshold at ' + str(solver.iteration) +
@@ -335,7 +329,7 @@ except:
     logger.error('Exception raised, triggering end of main loop.')
     lines = ["PARAMETERS FOR MODEL RUN","(R_e, R_g) = (" + str(Re) + ', ' + str(Rg) + ')',"nu = " + str(Rossby(Re,Rg)[0]), "f = " + str(Rossby(Re,Rg)[1]), "r = " +
              str(Rossby(Re,Rg)[2]), "tau = " + str(Rossby(Re,Rg)[3]),
-             "L = " + str(L), "H = " +str(H),"h_e = "+ str(h_e), "nx = " + str(nx), "nz = " + str(nz), "a_visc = " + str(a_visc)]
+             "L = " + str(L), "H = " +str(H),"h_e = "+ str(h_e), "nx = " + str(nx), "nz = " + str(nz), "n_visc = " + str(n_visc)]
 
     with open(run_folder + 'read_me.txt', 'w') as f:
         for line in lines:
@@ -346,7 +340,7 @@ finally:
     #solver.log_stats()
     lines = ["PARAMETERS FOR MODEL RUN","(R_e, R_g) = (" + str(Re) + ', ' + str(Rg) + ')',"nu = " + str(Rossby(Re,Rg)[0]), "f = " + str(Rossby(Re,Rg)[1]), "r = " +
              str(Rossby(Re,Rg)[2]), "tau = " + str(Rossby(Re,Rg)[3]),
-             "L = " + str(L), "H = " +str(H),"h_e = "+ str(h_e), "nx = " + str(nx), "nz = " + str(nz), "a_visc = " + str(a_visc)]
+             "L = " + str(L), "H = " +str(H),"h_e = "+ str(h_e), "nx = " + str(nx), "nz = " + str(nz), "n_visc = " + str(n_visc)]
 
     with open(run_folder + 'read_me.txt', 'w') as f:
         for line in lines:
