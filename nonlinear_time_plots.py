@@ -11,8 +11,8 @@ import os
 nx = 512 # fourier resolution
 nz = 68 # chebyshev resolution
 
-H = 100  # depth of water in meters
-h_e = 10 #ekman thickness
+H = 200  # depth of water in meters
+h_e = 20 #ekman thickness
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4    # coriolis param in 1/s
@@ -21,10 +21,10 @@ L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
 k = (2 * np.pi) / (L)
 
-Re = 1.6
+Re = 1.75
 Rg=0.1
 
-n_snaps = 141
+n_snaps = 582
 
 psi_arr = np.zeros((n_snaps,nx, nz))
 v_arr = np.zeros((n_snaps, nx, nz))
@@ -51,30 +51,25 @@ time_mths = lambda t: round(t/2.628e6,4)
 time_days = lambda t: round(t/86400,2)
 
 
-
-# folder_n = run_folder + 'snapshots_' + str(n) + '_n'
-# folder_n_sub = 'snapshots_' + str(n)  + '_n'
 run_folder = 'Re_big/ivp/snapshots'
 folder_n = run_folder
 folder_n_sub = 'snapshots'
 folder = 'Re_big/ivp/'
-#with h5py.File(folder_n + '/' + folder_n_sub + '_s1/' + folder_n_sub + '_s1_p0.h5',
-#               mode='r') as file:  # reading file
-#with h5py.File(folder + '/' + folder + '_s' + str(n) + '.h5',
-#with h5py.File(folder + '/' + folder + '_s' + str(n) + '/' + folder+ '_s' + str(n) + '_p0.h5',
- #              mode='r') as file:  # reading file
-with h5py.File(folder_n + '/' + folder_n_sub + '_s1/' + folder_n_sub + '_s1_p0.h5',
-mode = 'r') as file:  # reading file
+
+with h5py.File(folder_n + '/' + folder_n_sub + '_s1.h5',mode = 'r') as file:  #when using more than one core
+#with h5py.File(folder_n + '/' + folder_n_sub + '_s1/' + folder_n_sub + '_s1_p0.h5', mode = 'r') as file:
+
     psi = file['tasks']['<psi>']
     psi_arr[:,:, :] = np.array(file['tasks']['<psi>'])  # psi
     v_arr[:,:, :] = np.array(file['tasks']['<v>'])  # psi
     t_arr[:] = psi.dims[0]['sim_time'] #time array
 
-
+plt_idx = np.arange(1,n_snaps,10)
+print(plt_idx)
 def plotting():
-    for t in range(1, n_snaps):
-        maxval_psi=2.5
-        maxval_v = 1e-5
+    for t in plt_idx:
+        maxval_psi=6
+        maxval_v = 0.65
         #
         fig,ax= plt.subplots(constrained_layout=True)
         #CM= plt.pcolormesh(Z, X, psi_arr[i,:,:], shading='gouraud',cmap='PRGn', vmin=-maxval_psi, vmax=maxval_psi)
@@ -85,27 +80,27 @@ def plotting():
         plt.ylabel('vertical depth')
         plt.xlabel('periodic x-axis (0,2$\pi$)')
         plt.title('$\psi$ at t = ' + str(time_days(t_arr[t])) + ' days')
-        plt.savefig("Re_big/ivp/psi_test_t" + str(t) + '.png')
+        plt.savefig("Re_big/ivp/psi/psi_t" + str(t) + '.png')
         plt.close(fig)
     #
         fig, ax = plt.subplots(constrained_layout=True)
         #CM = plt.pcolormesh(Z, X, v_arr[i, :, :], shading='gouraud', cmap='PRGn', vmin=-maxval_v, vmax=maxval_v)
         CS = plt.contour(Z, X, v_arr[t, :, :], 30, colors='k')
-        CM = plt.pcolormesh(Z, X, v_arr[t, :, :], shading='gouraud', cmap='PRGn')
+        CM = plt.pcolormesh(Z, X, v_arr[t, :, :], shading='gouraud', cmap='PRGn', vmin=-maxval_psi, vmax=maxval_psi)
         cbar = fig.colorbar(CM)
         cbar.ax.set_ylabel('Velocity')
         plt.ylabel('vertical depth')
         plt.xlabel('periodic x-axis (0,2$\pi$)')
         plt.title('$v$ at t = ' + str(time_days(t_arr[t])) + ' days')
-        plt.savefig("Re_big/ivp/v_test_t" + str(t) + '.png')
+        plt.savefig("Re_big/ivp/v/v_t" + str(t) + '.png')
         plt.close(fig)
-#plotting()
+plotting()
 
 
 #____________________________________________other animation methods_________________________________________________
 def animate(variable):
 
-    path = 'Re_big/ivp/all_frames/' + str(variable) + '/'
+    path = 'Re_big/ivp/' + str(variable) + '/'
     image_folder = os.fsencode(path)
     video_name = 'psi_noise.mov'
 
@@ -120,7 +115,7 @@ def animate(variable):
 
     images = list(map(lambda filename: imageio.imread(filename), filenames))
 
-    imageio.mimsave(os.path.join('Re_big/ivp/' + video_name), images) # modify duration as needed
+    imageio.mimsave(os.path.join('Re_big/ivp/' +str(variable) + '/' + video_name), images) # modify duration as needed
 
 animate('psi')
 
