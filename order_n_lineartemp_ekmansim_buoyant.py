@@ -24,10 +24,10 @@ from dedalus.extras import plot_tools
 de.logging_setup.rootlogger.setLevel('ERROR')  # suppress logging msgs
 
 nx = 512 # fourier resolution
-nz = 128  # chebyshev resolution
+nz = 68  # chebyshev resolution
 
-H = 10  # depth of water in meters
-h_e = 1 #ekman thickness
+H = 200  # depth of water in meters
+h_e = 20 #ekman thickness
 
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
@@ -206,15 +206,16 @@ class Solver_n:
                                              'zetaz', 'psix', 'psiz','zetazz','b','bz'])
 
         a_visc = ((300/2)**2)/(h_e**2)
+        A_h = (self.tau / (self.f * h_e)) * 30 * (L / nx)
         # setting up all parameters
         problem.parameters['nu'] = self.nu  # viscosity
-        problem.parameters['nu_h'] = a_visc * self.nu
+        problem.parameters['nu_h'] = A_h
         problem.parameters['f'] = self.f  # coriolis param
         problem.parameters['r'] = self.r  # damping param
         problem.parameters['A'] = self.tau  # forcing param
         problem.parameters['H'] = H
         problem.parameters['k'] = k
-        problem.parameters['N'] = self.f*0.5
+        problem.parameters['N'] = self.f*0.1
 
 
         problem.parameters['Jac_psi_zeta'] = self.Jn(self.n)[0]  # self.j = self.j2 = 0 for 0th order solution
