@@ -25,7 +25,7 @@ dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
 
-N = 50 # the order up to which the model runs
+N = 100 # the order up to which the model runs
 
 L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
@@ -182,16 +182,17 @@ class Solver_n:
 
         global solver
         global state
-        global a_visc, alpha, A_h
+        global a_visc, alpha, A_h, n_visc
 
         #print("n_solve=",self.n)
 
         problem = de.LBVP(domain, variables=['psi', 'u', 'v', 'vx',
                                              'vz', 'zeta',
                                              'zetaz', 'zetax', 'psix', 'psiz','zetazz'])
-        alpha = 350
-        a_visc = ((alpha/2)**2)/(h_e**2)
-        A_h = (self.tau/(self.f*h_e)) * 20 *(L / nx)
+        # alpha = 350
+        # a_visc = ((alpha/2)**2)/(h_e**2)
+        n_visc = 25
+        A_h = (self.tau/(self.f*h_e)) * n_visc *(L / nx)
         # setting up all parameters
         problem.parameters['nu'] = self.nu  # viscosity
         #problem.parameters['nu_h'] = a_visc * self.nu
@@ -414,6 +415,7 @@ if __name__ == "__main__":
             print("-------------------- PARAMETERS USED -------------------------")
             print("A_v = " , Rossby(j,R_g)[0])
             print("A_h = ", A_h)
+            print("n_visc = ", n_visc)
             print("f = " , Rossby(j,R_g)[1])
             print("r = " , Rossby(j,R_g)[2])
             print("tau = " , Rossby(j,R_g)[3])
@@ -432,8 +434,8 @@ if __name__ == "__main__":
         print("---------------------------------------------------------------------")
         print("-------------------- PARAMETERS USED -------------------------")
         print("A_v = " , Rossby(j,R_g)[0])
-        #print("nu_h = ", a_visc * Rossby(j, R_g)[0])
         print("A_h = ", A_h)
+        print("n_visc = ", n_visc)
         print("f = " , Rossby(j,R_g)[1])
         print("r = " , Rossby(j,R_g)[2])
         print("tau = " , Rossby(j,R_g)[3])
@@ -456,7 +458,7 @@ if __name__ == "__main__":
     R_e = ek_rossby_vals[0]
     lines = ["PARAMETERS FOR MODEL RUN","(R_e, R_g) = (" + str(R_e) + ', ' + str(R_g) + ')',"A_v = " + str(Rossby(R_e,R_g)[0]),"A_h = " + str(A_h), "f = " + str(Rossby(R_e,R_g)[1]), "r = " +
              str(Rossby(R_e,R_g)[2]), "tau = " + str(Rossby(R_e,R_g)[3]),
-             "L = " + str(L), "H = " +str(H),"h_e = "+ str(h_e), "nx = " + str(nx), "nz = " + str(nz), "N = " + str(N)]
+             "L = " + str(L), "H = " +str(H),"h_e = "+ str(h_e), "nx = " + str(nx), "nz = " + str(nz), "N = " + str(N), "n_visc = " + str (n_visc)]
 
     with open(run_folder + 'read_me.txt', 'w') as f:
         for line in lines:
