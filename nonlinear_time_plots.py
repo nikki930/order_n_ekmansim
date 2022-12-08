@@ -24,8 +24,8 @@ k = (2 * np.pi) / (L)
 Re = 1.75
 Rg=0.1
 
-n_snaps = 582
-
+#n_snaps = 544
+n_snaps=418
 psi_arr = np.zeros((n_snaps,nx, nz))
 v_arr = np.zeros((n_snaps, nx, nz))
 t_arr = np.zeros(n_snaps)
@@ -34,9 +34,11 @@ t_arr = np.zeros(n_snaps)
 #dist = d3.Distributor(zcoord)
 #z_basis = d3.Chebyshev(zcoord, size=nz, bounds=(0, H))
 
+zcoord = d3.Coordinate('z')
+dist = d3.Distributor(zcoord)
+z_basis = d3.Chebyshev(zcoord, size=nz, bounds=(0, H))
 x = np.linspace(0, L, nx)
-z = np.linspace(0, H, nz)
-X, Z = np.meshgrid(z,x )
+X, Z = np.meshgrid(dist.local_grid(z_basis),x )
 
 # fig, ax = plt.subplots(constrained_layout=True)
 # plt.plot(x, v_arr[10, :, 68])
@@ -51,14 +53,15 @@ time_mths = lambda t: round(t/2.628e6,4)
 time_days = lambda t: round(t/86400,2)
 
 
-run_folder = 'Re_big/ivp/snapshots'
+#run_folder = 'Re_big/ivp/snapshots'
+run_folder = 'Re_big/ivp/noise/snapshots'
 folder_n = run_folder
 folder_n_sub = 'snapshots'
-folder = 'Re_big/ivp/'
+folder = 'Re_big/ivp/noise/'
 
-with h5py.File(folder_n + '/' + folder_n_sub + '_s1.h5',mode = 'r') as file:  #when using more than one core
+#with h5py.File(folder_n + '/' + folder_n_sub + '_s1.h5',mode = 'r') as file:  #when using more than one core
 #with h5py.File(folder_n + '/' + folder_n_sub + '_s1/' + folder_n_sub + '_s1_p0.h5', mode = 'r') as file:
-
+with h5py.File(run_folder +'/' + folder_n_sub +'.h5', mode = 'r') as file: # for pre merged sets
     psi = file['tasks']['<psi>']
     psi_arr[:,:, :] = np.array(file['tasks']['<psi>'])  # psi
     v_arr[:,:, :] = np.array(file['tasks']['<v>'])  # psi
@@ -68,7 +71,7 @@ plt_idx = np.arange(1,n_snaps,10)
 print(plt_idx)
 def plotting():
     for t in plt_idx:
-        maxval_psi=6
+        maxval_psi=8
         maxval_v = 0.65
         #
         fig,ax= plt.subplots(constrained_layout=True)
@@ -80,19 +83,19 @@ def plotting():
         plt.ylabel('vertical depth')
         plt.xlabel('periodic x-axis (0,2$\pi$)')
         plt.title('$\psi$ at t = ' + str(time_days(t_arr[t])) + ' days')
-        plt.savefig("Re_big/ivp/psi/psi_t" + str(t) + '.png')
+        plt.savefig(folder + 'psi_t' + str(t) + '.png')
         plt.close(fig)
     #
         fig, ax = plt.subplots(constrained_layout=True)
         #CM = plt.pcolormesh(Z, X, v_arr[i, :, :], shading='gouraud', cmap='PRGn', vmin=-maxval_v, vmax=maxval_v)
         CS = plt.contour(Z, X, v_arr[t, :, :], 30, colors='k')
-        CM = plt.pcolormesh(Z, X, v_arr[t, :, :], shading='gouraud', cmap='PRGn', vmin=-maxval_psi, vmax=maxval_psi)
+        CM = plt.pcolormesh(Z, X, v_arr[t, :, :], shading='gouraud', cmap='PRGn', vmin=-maxval_v, vmax=maxval_v)
         cbar = fig.colorbar(CM)
         cbar.ax.set_ylabel('Velocity')
         plt.ylabel('vertical depth')
         plt.xlabel('periodic x-axis (0,2$\pi$)')
         plt.title('$v$ at t = ' + str(time_days(t_arr[t])) + ' days')
-        plt.savefig("Re_big/ivp/v/v_t" + str(t) + '.png')
+        plt.savefig(folder + 'v_t' + str(t) + '.png')
         plt.close(fig)
 plotting()
 
@@ -117,7 +120,7 @@ def animate(variable):
 
     imageio.mimsave(os.path.join('Re_big/ivp/' +str(variable) + '/' + video_name), images) # modify duration as needed
 
-animate('psi')
+#animate('psi')
 
 #____________________________________________other animation methods_________________________________________________
 # # Animate IVP

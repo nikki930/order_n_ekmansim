@@ -20,10 +20,10 @@ from dedalus.extras import plot_tools
 de.logging_setup.rootlogger.setLevel('ERROR')  # suppress logging msgs
 
 nx = 512 # fourier resolution
-nz = 128  # chebyshev resolution
+nz = 68  # chebyshev resolution
 
-H = 10  # depth of water in meters
-h_e = 1 #ekman thickness
+H = 200  # depth of water in meters
+h_e = 20 #ekman thickness
 
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
@@ -175,10 +175,11 @@ class Solver_n:
                                              'vz', 'zeta',
                                              'zetaz', 'zetax', 'psix', 'psiz','zetazz'])
 
-        a_visc = ((300/2)**2)/(h_e**2)
+        n_visc = 25
+        A_h = (self.tau/(self.f*h_e)) * n_visc *(L / nx)
         # setting up all parameters
         problem.parameters['nu'] = self.nu  # viscosity
-        problem.parameters['nu_h'] = a_visc * self.nu
+        problem.parameters['nu_h'] = A_h
         problem.parameters['f'] = self.f  # coriolis param
         problem.parameters['r'] = self.r  # damping param
         problem.parameters['A'] = self.tau  # forcing param
@@ -250,6 +251,7 @@ class Solver_n:
         out.add_task("psix", layout='g', name='<psix>')  # saving variables
         out.add_task("psiz", layout='g', name='<psiz>')  # saving variables
         out.add_task("zetax", layout='g', name='<zetax>')  # saving variables
+        out.add_task("dx(zetax)", layout='g', name='<zetaxx>')  # saving variables
         out.add_task("zetaz", layout='g', name='<zetaz>')  # saving variables
         out.add_task("zetazz", layout='g', name='<zetazz>')  # saving variables
         out.add_task("zeta", layout='g', name='<zeta>')  # saving variables
@@ -344,14 +346,14 @@ def main(n,R_e,R_g):
         s = Solver_n(Rossby(R_e,R_g)[0],Rossby(R_e,R_g)[1],Rossby(R_e,R_g)[2],Rossby(R_e,R_g)[3], 0)
         s.eqns('psi')
         s.analysis(run_folder)
-        s.plotting(run_folder, run_folder + figname)
+        #s.plotting(run_folder, run_folder + figname)
 
     else:
 
         s = Solver_n(Rossby(R_e,R_g)[0],Rossby(R_e,R_g)[1],Rossby(R_e,R_g)[2],Rossby(R_e,R_g)[3], n)
         s.eqns('psi')
         s.analysis(run_folder)
-        s.plotting(run_folder, run_folder + figname)
+        #s.plotting(run_folder, run_folder + figname)
 
 
 

@@ -28,9 +28,12 @@ import h5py
 import matplotlib.pyplot as plt
 from dedalus import public as de
 from dedalus.extras import flow_tools
+from dedalus.tools import post
 import logging
 
-run_folder = 'Re_big/ivp/snapshots'
+#run_folder = 'Re_big/ivp/snapshots' #for runs with no noise
+run_folder = 'Re_big/ivp/noise/snapshots'
+
 folder_n = run_folder
 folder_n_sub = 'snapshots'
 folder = 'Re_big/ivp/'
@@ -70,12 +73,12 @@ dt = 1000
 max_dt = 1e5
 min_dt = 0
 
-stop_sim_time=8 * 1e4
+stop_sim_time=6 * 1e4
 #stop_sim_time=2 * 1e4
 fh_mode = 'overwrite'
 
 #n_snaps=int(stop_sim_time/(dt))
-n_snaps = int(600)
+n_snaps = int(1000)
 print(n_snaps)
 t_count = 0
 
@@ -92,40 +95,7 @@ zeta_x_arr = np.zeros((n_snaps+2, nx, int(nz/n_core)))
 v_arr_corrected = np.zeros((n_snaps+2, nx, int(nz/n_core)))
 t_arr = np.zeros(n_snaps+1)
 
-def Jn(t_idx):
-    '''
-    Calculates the nonlinear terms of order n
 
-    :param self:
-    :param t_idx: index of time at which
-    :param n_solve: order to solve J to
-    :return: [J(psi,zeta), J(psi,v)]
-    '''
-    J1 = 0
-    J2 = 0
-    folder0 = 'out_0_n'
-    global psi_arr
-
-    if t_idx == 0:
-        return J1, J2
-
-    else:
-        n = t_idx - 1
-        # print ("n_solve-1=",n)
-        for j in range(0, n + 1):
-            J1 += psi_x_arr[j, :, :] * zeta_z_arr[n - j, :, :] - psi_z_arr[j, :, :] * zeta_x_arr[n - j, :,:]
-            J2 += psi_x_arr[j, :, :] * v_z_arr[n - j, :, :] - psi_z_arr[j, :, :] * v_x_arr[n - j, :, :]
-
-
-        Jac_temp1 = domain.new_field()
-        gslices = domain.dist.grid_layout.slices(scales=1)
-        Jac_temp1['g'] = J1[:, :][gslices[0]]
-
-        Jac_temp2 = domain.new_field()
-        gslices = domain.dist.grid_layout.slices(scales=1)
-        Jac_temp2['g'] = J2[:, :][gslices[0]]
-
-        return Jac_temp1, Jac_temp2
 
 def Rossby(R_e, R_g):
     """
@@ -223,7 +193,7 @@ solver.stop_sim_time = stop_sim_time
 
 # Analysis
 #snapshots = solver.evaluator.add_file_handler('snapshots', sim_dt=0.25, max_writes=50, mode=fh_mode)
-snapshots = solver.evaluator.add_file_handler('Re_big/ivp/snapshots', iter=1, max_writes=1000)
+snapshots = solver.evaluator.add_file_handler(run_folder, iter=1, max_writes=10000)
 snapshots.add_system(solver.state)
 snapshots.add_task("psi", layout='g', name='<psi>')
 snapshots.add_task("v", layout='g', name='<v>') # saving variables
@@ -341,6 +311,10 @@ finally:
     lines = ["PARAMETERS FOR MODEL RUN","(R_e, R_g) = (" + str(Re) + ', ' + str(Rg) + ')',"nu = " + str(Rossby(Re,Rg)[0]), "f = " + str(Rossby(Re,Rg)[1]), "r = " +
              str(Rossby(Re,Rg)[2]), "tau = " + str(Rossby(Re,Rg)[3]),
              "L = " + str(L), "H = " +str(H),"h_e = "+ str(h_e), "nx = " + str(nx), "nz = " + str(nz), "n_visc = " + str(n_visc)]
+
+    post.merge_process_files(run_folder, cleanup=True)
+    set_paths = list(pathlib.Path(run_folder).glob("snapshots_s*.h5"))
+    post.merge_sets(run_folder+"/snapshots.h5", set_paths, cleanup=True)
 
     with open(run_folder + 'read_me.txt', 'w') as f:
         for line in lines:

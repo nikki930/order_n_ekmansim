@@ -189,9 +189,8 @@ class Solver_n:
         problem = de.LBVP(domain, variables=['psi', 'u', 'v', 'vx',
                                              'vz', 'zeta',
                                              'zetaz', 'zetax', 'psix', 'psiz','zetazz'])
-        # alpha = 350
-        # a_visc = ((alpha/2)**2)/(h_e**2)
         n_visc = 25
+        #n_visc = 50 #high viscosity test
         A_h = (self.tau/(self.f*h_e)) * n_visc *(L / nx)
         # setting up all parameters
         problem.parameters['nu'] = self.nu  # viscosity
@@ -365,14 +364,14 @@ def main(n,R_e,R_g):
         s = Solver_n(Rossby(R_e,R_g)[0],Rossby(R_e,R_g)[1],Rossby(R_e,R_g)[2],Rossby(R_e,R_g)[3], 0)
         s.eqns('psi')
         s.analysis(run_folder)
-        s.plotting(run_folder, run_folder + figname)
+        #s.plotting(run_folder, run_folder + figname)
 
     else:
 
         s = Solver_n(Rossby(R_e,R_g)[0],Rossby(R_e,R_g)[1],Rossby(R_e,R_g)[2],Rossby(R_e,R_g)[3], n)
         s.eqns('psi')
         s.analysis(run_folder)
-        s.plotting(run_folder, run_folder + figname)
+        #s.plotting(run_folder, run_folder + figname)
 
 
 

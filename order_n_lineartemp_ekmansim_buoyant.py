@@ -239,7 +239,7 @@ class Solver_n:
         problem.add_equation("(dx(dx(zeta))*nu_h + zetazz*nu) + f*vz - dx(b)= Jac_psi_zeta") # nu* grad^2 zeta + fv_z=0
         problem.add_equation("(dx(dx(b))*nu_h + dz(bz)*nu) + (N**2)*psix + integ(integ(b,'z'),'x') = Jac_psi_b")
         #problem.add_equation("integ(integ(b,'z'),'x')=0")
-
+ 
         # for 0th order
         if self.n == 0:
             problem.add_bc("vz(z='right') = (A/nu)*cos(x*k+ 3.14159/2)")  # wind forcing on 0th order boundary condition

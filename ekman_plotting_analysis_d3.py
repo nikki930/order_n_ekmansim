@@ -24,11 +24,11 @@ from contextlib import suppress
 ########################## MUST MATCH MASTER RUN FILE ##################################################################
 N=100
 nx = 512  # fourier resolution
-nz = 128  # chebyshev resolution
+nz = 68  # chebyshev resolution
 run_folder =  'Re_big/'
 
-H = 10  # depth of water in meters
-h_e = 1 #ekman thickness
+H = 200  # depth of water in meters
+h_e = 20 #ekman thickness
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
@@ -163,8 +163,11 @@ z_basis = d3.Chebyshev(zcoord, size=nz, bounds=(0, H))
 x = np.linspace(0, L, nx)
 X, Z = np.meshgrid(dist.local_grid(z_basis),x )
 
+psi_vmax=0.5
+zeta_vmax=8e-4
 fig,ax= plt.subplots(constrained_layout=True)
-CS = plt.contour(Z, X, psi_A_arr_test, 30,cmap='PRGn',vmin=-3e-3,vmax=3e-3)
+CS = plt.contour(Z, X, psi_A_arr_test, 30,cmap='PRGn',vmin=-psi_vmax,vmax=psi_vmax)
+#CS = plt.contour(Z, X, psi_A_arr_test, 30,cmap='PRGn')
 plt.clabel(CS,inline=1,fontsize=5)
 #CM= plt.pcolormesh(Z, X, psi_A_arr_test, shading='gouraud',cmap='PRGn',vmin=-3e-3,vmax=3e-3)
 #CM= plt.pcolormesh(Z, X, psi_A_arr_test, shading='gouraud',cmap='PRGn',vmin=-9.6e-3,vmax=9.6e-3)
@@ -177,7 +180,8 @@ plt.savefig(folder + 'psi_A.png')
 plt.close(fig)
 
 fig,ax= plt.subplots(constrained_layout=True)
-CS = plt.contour(Z, X, psi_B_arr_test, 30,cmap='PRGn',vmin=-3e-3,vmax=3e-3)
+CS = plt.contour(Z, X, psi_B_arr_test, 30,cmap='PRGn',vmin=-psi_vmax,vmax=psi_vmax)
+#CS = plt.contour(Z, X, psi_B_arr_test, 30,cmap='PRGn')
 plt.clabel(CS,inline=1,fontsize=5)
 #CM= plt.pcolormesh(Z, X, psi_B_arr_test, shading='gouraud',cmap='PRGn',vmin=-3e-3,vmax=3e-3)
 #CM= plt.pcolormesh(Z, X, psi_B_arr_test, shading='gouraud',cmap='PRGn', vmin=-9.6e-3,vmax=9.6e-3)
@@ -190,10 +194,10 @@ plt.savefig(folder + 'psi_B.png')
 plt.close(fig)
 
 fig,ax= plt.subplots(constrained_layout=True)
-CS = plt.contour(Z, X, psi_A_arr_test, 30, colors='k',vmin=-1.1e-3,vmax=1.1e-3)
+CS = plt.contour(Z, X, psi_A_arr_test, 30, colors='k')
 plt.clabel(CS, CS.levels[1::5],inline=1,fontsize=5)
-CM= plt.pcolormesh(Z, X, zeta_A_arr_test, shading='gouraud',cmap='PRGn', vmin=-1.1e-3,vmax=1.1e-3)
-#CM= plt.pcolormesh(Z, X, zeta_A_arr_test, shading='gouraud',cmap='PRGn', vmin=-2.4e-3,vmax=2.4e-3)
+CM= plt.pcolormesh(Z, X, zeta_A_arr_test, shading='gouraud',cmap='PRGn', vmin=-zeta_vmax,vmax=zeta_vmax)
+#CM= plt.pcolormesh(Z, X, zeta_A_arr_test, shading='gouraud',cmap='PRGn')
 cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Vorticity ($s^{-1}$)')
 plt.ylabel('vertical depth')
@@ -203,10 +207,10 @@ plt.savefig(folder + 'zeta_A.png')
 plt.close(fig)
 
 fig,ax= plt.subplots(constrained_layout=True)
-CS = plt.contour(Z, X, psi_B_arr_test, 30, colors='k',vmin=-1.1e-3,vmax=1.1e-3)
+CS = plt.contour(Z, X, psi_B_arr_test, 30, colors='k')
 plt.clabel(CS, CS.levels[1::5],inline=1,fontsize=5)
-#CM= plt.pcolormesh(Z, X, zeta_B_arr_test, shading='gouraud',cmap='PRGn', vmin=-2.4e-3,vmax=2.4e-3)
-CM= plt.pcolormesh(Z, X, zeta_B_arr_test, shading='gouraud',cmap='PRGn', vmin=-1.1e-3,vmax=1.1e-3)
+#CM= plt.pcolormesh(Z, X, zeta_B_arr_test, shading='gouraud',cmap='PRGn')
+CM= plt.pcolormesh(Z, X, zeta_B_arr_test, shading='gouraud',cmap='PRGn', vmin=-zeta_vmax,vmax=zeta_vmax)
 cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Vorticity ($s^{-1}$)')
 plt.ylabel('vertical depth')
@@ -242,10 +246,13 @@ z_basis = d3.Chebyshev(zcoord, size=nz, bounds=(0, H))
 x = np.linspace(0, L, nx)
 X, Z = np.meshgrid(dist.local_grid(z_basis),x )
 
+v_vmax=0.05
+
+
 fig,ax= plt.subplots(constrained_layout=True)
 CS = plt.contour(Z, X, zeta_A_arr_test, 30, colors='k')
 plt.clabel(CS,inline=1,fontsize=5)
-CM= plt.pcolormesh(Z, X, v_A_arr_test, shading='gouraud',cmap='PRGn',vmin=-8e-3,vmax=8e-3)
+CM= plt.pcolormesh(Z, X, v_A_arr_test, shading='gouraud',cmap='PRGn',vmin=-v_vmax,vmax=v_vmax)
 #CM= plt.pcolormesh(Z, X, psi_A_arr_test, shading='gouraud',cmap='PRGn',vmin=-9.6e-3,vmax=9.6e-3)
 cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Streamfunction (kg/ms)')
@@ -258,7 +265,7 @@ plt.close(fig)
 fig,ax= plt.subplots(constrained_layout=True)
 CS = plt.contour(Z, X, zeta_B_arr_test,30, colors='k')
 plt.clabel(CS,inline=1,fontsize=5)
-CM= plt.pcolormesh(Z, X, v_B_arr_test, shading='gouraud',cmap='PRGn',vmin=-8e-3,vmax=8e-3)
+CM= plt.pcolormesh(Z, X, v_B_arr_test, shading='gouraud',cmap='PRGn',vmin=-v_vmax,vmax=v_vmax)
 #CM= plt.pcolormesh(Z, X, psi_B_arr_test, shading='gouraud',cmap='PRGn', vmin=-9.6e-3,vmax=9.6e-3)
 cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Streamfunction (kg/ms)')

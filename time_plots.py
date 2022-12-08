@@ -8,11 +8,11 @@ import ffmpeg
 import os
 
 # Parameters
-nx = 512 # fourier resolution
-nz = 128  # chebyshev resolution
+nx = 128 # fourier resolution
+nz = 68  # chebyshev resolution
 
-H = 100  # depth of water in meters
-h_e = 10 #ekman thickness
+H = 200  # depth of water in meters
+h_e = 20 #ekman thickness
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
@@ -21,11 +21,11 @@ L_func = lambda H, delta_a: H / delta_a
 L = L_func(H, da)
 k = (2 * np.pi) / (L)
 
-Re = 1.6
+Re = 1.75
 Rg=0.1
 
 
-n_snaps = 102
+n_snaps = 204
 
 psi_arr = np.zeros((n_snaps,nx, nz))
 v_arr = np.zeros((n_snaps, nx, nz))

@@ -20,12 +20,13 @@ import matplotlib
 ########################## MUST MATCH MASTER RUN FILE ##################################################################
 N=100
 run_folder =  'Forcing_Analysis/geostrophic_test/'
+#run_folder = 'Re_big/'
 nx = 512  # fourier resolution
-nz = 128  # chebyshev resolution
+nz = 68  # chebyshev resolution
 
 
-H = 10  # depth of water in meters
-h_e = 1 #ekman thickness
+H = 200  # depth of water in meters
+h_e = 20 #ekman thickness
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
@@ -48,7 +49,7 @@ def Rossby(R_e, R_g):
 
     return nu_value_temp,f_value_temp,r_value_temp,tau_value_temp
 
-ek_rossby = 0.2
+ek_rossby = 1.75
 geo_rossby = 0.1
 A_v = Rossby(ek_rossby,geo_rossby)[0] #vertical viscosity
 A_h =  Rossby(ek_rossby,geo_rossby)[0] * ((300/2)**2)/(h_e**2) #horizontal viscosity
