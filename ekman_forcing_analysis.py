@@ -21,12 +21,14 @@ from scipy.fft import fft, fftfreq
 from dedalus import public as d3
 
 N=100
-nx = 512  # fourier resolution
-nz = 128  # chebyshev resolution
-run_folder =  'Re_big/'
+nx = 512 # fourier resolution
+nz = 68  # chebyshev resolution
 
-H = 10  # depth of water in meters
-h_e = 1 #ekman thickness
+H = 200  # depth of water in meters
+h_e = 20 #ekman thickness
+
+run_folder =  'Re_big/' #where we load data from
+
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
@@ -44,6 +46,33 @@ zeta_arr_corrected = np.zeros((N + 1, nx, nz))
 v_z_arr = np.zeros((N + 1, nx, nz))
 v_z_arr_corrected = np.zeros((N + 1, nx, nz))
 
+Re = 1.75
+Rg = 0.1
+def Rossby(R_e, R_g):
+    """
+    determines viscosity, wind forcing magnitude, damping parameter and coriolis parameter based on a
+    nondimensionalization done analytically in order to be able to give the function Ekman Rossby and Geostrophic
+    Rossby numbers and have it return reasonable values for the aforementioned variables.
+    """
+    R_e_temp = R_e / (2 * np.pi)
+    R_g_temp = R_g / (2 * np.pi)
+
+    nu_func = lambda f, H, delta_h: (f * (H ** 2) * (delta_h) ** 2) / 2
+    tau_func = lambda f, delta_h, Re, delta_a, H: (Re * f ** 2) * (H ** 2) * (delta_h / delta_a)
+    r_func = lambda f, delta_h, Re, Rg: (delta_h * Re * f) / (Rg)
+
+    nu_value_temp = nu_func(f, H, dh)  # m^2/second
+    tau_value_temp = tau_func(f, dh, R_e_temp, da, H)
+    r_value_temp = r_func(f, dh, R_e_temp, R_g_temp)
+    f_value_temp = f
+
+    # print('L=', L)
+    # print('tau=', tau_value_temp)
+    # print('r=', r_value_temp)
+    # print('nu=', nu_value_temp)
+    return nu_value_temp,f_value_temp,r_value_temp,tau_value_temp
+
+print(Rossby(Re,Rg))
 
 # folder_n = run_folder + 'out_' + str(i) + '_n'
 # folder_n_sub = 'out_' + str(self.n) + '_n'
@@ -82,10 +111,14 @@ domain = d3.Domain([x_basis, z_basis], grid_dtype=np.float64)
 problem = d3.LBVP(domain, variables=['psi_A', 'zeta_A',
                                              'zeta_Az', 'psi_Az','zeta_Azz','psi_B', 'zeta_B',
                                              'zeta_Bz', 'psi_Bz','zeta_Bzz'])
-a_visc = ((300 / 2) ** 2) / (1** 2)
+# a_visc = ((300 / 2) ** 2) / (1** 2)
 # setting up all parameters
-problem.parameters['nu'] = 5*1e-5  # viscosity
-problem.parameters['nu_h'] = a_visc * 5*1e-5
+n_visc = 25
+A_h = (Rossby(Re,Rg)[3]/(Rossby(Re,Rg)[1]*h_e)) * n_visc *(L / nx)
+problem.parameters['nu'] =Rossby(Re,Rg)[0]  # viscosity
+problem.parameters['nu_h'] = A_h
+# problem.parameters['nu'] = 5*1e-5  # viscosity
+# problem.parameters['nu_h'] = a_visc * 5*1e-5
 problem.parameters['f'] = 1e-4 # coriolis param
 
 
@@ -133,7 +166,7 @@ problem.add_bc("dz(psi_Bz)(z='right') = 0")
 
 solver = problem.build_solver()
 solver.solve()
-z
+
 
 #output:
 folder = 'Forcing_Analysis/'
