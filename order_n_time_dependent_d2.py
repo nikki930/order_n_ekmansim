@@ -31,8 +31,8 @@ from dedalus.extras import flow_tools
 from dedalus.tools import post
 import logging
 
-#run_folder = 'Re_big/ivp/snapshots' #for runs with no noise
-run_folder = 'Re_big/ivp/noise/snapshots'
+run_folder = 'Re_big/ivp/snapshots' #for runs with no noise
+#run_folder = 'Re_big/ivp/noise/snapshots'
 
 folder_n = run_folder
 folder_n_sub = 'snapshots'
@@ -53,8 +53,8 @@ n_core = int(1)
 nx = 512 # fourier resolution
 nz = 68  # chebyshev resolution
 
-H = 200  # depth of water in meters
-h_e = 20 #ekman thickness
+H = 100  # depth of water in meters
+h_e = 10 #ekman thickness
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
@@ -73,7 +73,7 @@ dt = 1000
 max_dt = 1e5
 min_dt = 0
 
-stop_sim_time=6 * 1e4
+stop_sim_time=4 * 1e4
 #stop_sim_time=2 * 1e4
 fh_mode = 'overwrite'
 
@@ -184,8 +184,8 @@ rand = np.random.RandomState(seed=42)
 noise = rand.standard_normal(gshape)[slices]
 zb, zt = z_basis.interval
 #v['g'][0] = 1/2 + 1/2 * (np.tanh((z-0.5)/0.1) - np.tanh((z+0.5)/0.1))
-pert = 1e-3 * noise * (zt - z) * (z - zb) #noise
-v['g'] +=  pert #adding noise to initial v
+#pert = 1e-3 * noise * (zt - z) * (z - zb) #noise
+#v['g'] +=  pert #adding noise to initial v
 
 
 # Integration parameters

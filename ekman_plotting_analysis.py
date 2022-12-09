@@ -8,12 +8,12 @@ import sys
 from scipy.fft import fft, fftfreq
 from contextlib import suppress
 
-N=120
+N=100
 nx = 512  # fourier resolution
-nz = 512  # chebyshev resolution
+nz = 68  # chebyshev resolution
 
-H = 10  # depth of water in meters
-h_e = 1 #ekman thickness
+H = 200  # depth of water in meters
+h_e = 20 #ekman thickness
 dh = h_e/H  # dh = ekman thickness divided by H
 da = 0.01  # aspect ratio = ratio of height to length
 f = 1e-4  # coriolis param in 1/s
@@ -41,7 +41,7 @@ max_vals = np.zeros(N + 1)
 for i in range(N+1):
     folder_n = 'out_' + str(i) + '_n'
 
-    with h5py.File(folder_n + '/' + folder_n + '_s1/' + folder_n + '_s1_p0.h5',
+    with h5py.File('Re_big/' + folder_n + '/' + folder_n + '_s1/' + folder_n + '_s1_p0.h5',
                    mode='r') as file:  # reading file
 
         psi_arr[i, :, :] = np.array(file['tasks']['<psi>'])  # psi
@@ -103,7 +103,7 @@ KE_total = lambda k: (fft_out(u_slice(k))[int(nx / 2 + 1):] + fft_out(w_slice(k)
 #conj_power_psi = lambda i: np.conj(np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(psi_slice(i)))))
 
 
-orders_plt=np.arange(0,120,10)
+orders_plt=np.arange(0,N)
 
 #orders_plt=20
 #plt.loglog(np.arange(1, int(nx/2)), fft_out(psi_slice(orders_plt))[int(nx/2 + 1):], label='order' + str(orders_plt))
@@ -113,13 +113,17 @@ for k in orders_plt:
     #plt.loglog(np.arange(1,int(nx/2)), fft_out(zeta_slice(k))[int(nx/2 + 1):], label='order' + str(k))
     #plt.loglog(np.arange(1, int(nx / 2)), (fft_out(w_slice(k))[int(nx / 2 + 1):])/2, label='order' + str(k))
     #plt.loglog(np.arange(1, int(nx / 2)), (fft_out(u_slice(k))[int(nx / 2 + 1):]) / 2, label='order' + str(k))
-    plt.plot(np.arange(1, int(nx / 2)), KE_total(k), label='order' + str(k))
+    plt.plot(np.arange(0, 512), u_slice(k), label='order' + str(k))
+    #plt.plot(np.arange(1, int(nx / 2)), KE_total(k), label='order' + str(k))
 
     #plt.plot(np.arange(0,int(nx/2)),(DFT(psi_slice(k)) * np.conj(DFT(psi_slice(k)))))
 
-plt.yscale('log')
-plt.xlabel('modes')
-plt.title("Total Kinetic Energy Spectrum")
-plt.legend()
-plt.savefig('KE_psd_notlog')
+#plt.yscale('log')
+plt.ylabel('streamfunction strength (kg/ms)')
+plt.xlabel('x-grid points')
+plt.grid(color='green', linestyle='--', linewidth=0.5)
+#plt.title("Total Kinetic Energy Spectrum")
+plt.title("$\psi_{max}$ Horizontal Slice for orders n $\in$ [0,100]")
+#plt.legend()
+plt.savefig('KE_all')
 plt.show()
