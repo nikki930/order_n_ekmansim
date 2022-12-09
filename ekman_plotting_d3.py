@@ -19,8 +19,8 @@ import matplotlib
 #matplotlib.rc('text.latex', preamble=r'\usepackage{amsmath}')
 ########################## MUST MATCH MASTER RUN FILE ##################################################################
 N=100
-run_folder =  'Forcing_Analysis/geostrophic_test/'
-#run_folder = 'Re_big/'
+#run_folder =  'Forcing_Analysis/geostrophic_test/'
+run_folder = 'Re_big/'
 nx = 512  # fourier resolution
 nz = 68  # chebyshev resolution
 
@@ -148,13 +148,13 @@ u_nl = lambda i: psi_z_arr_corrected[i, :, :] - psi_z_arr_corrected[0,:,:]
 vz_nl = lambda i: v_z_arr_corrected[i, :, :] - v_z_arr_corrected[0,:,:]
 zeta_zz_nl = lambda i: zeta_zz_arr_corrected[i, :, :] - zeta_zz_arr_corrected[0,:,:]
 zeta_xx_nl = lambda i: zeta_xx_arr_corrected[i, :, :] - zeta_xx_arr_corrected[0,:,:]
-
+vmax = 0.003
 
 order = 0
 fig,ax= plt.subplots(constrained_layout=True)
 CS = plt.contour(Z, X, psi_arr_corrected[0, :, :], 30, colors='k')
 plt.clabel(CS, CS.levels[1::5],inline=1,fontsize=5)
-CM= plt.pcolormesh(Z, X, w(0), shading='gouraud',cmap='PRGn', vmin=-2e-4,vmax=2e-4)
+CM= plt.pcolormesh(Z, X, w(0), shading='gouraud',cmap='PRGn', vmin=-vmax,vmax=vmax)
 cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Velocity Field')
 plt.ylabel('vertical depth')
@@ -167,7 +167,7 @@ order = 1
 fig,ax= plt.subplots(constrained_layout=True)
 CS = plt.contour(Z, X, psi_arr_corrected[1, :, :], 30, colors='k')
 plt.clabel(CS, CS.levels[1::5],inline=1,fontsize=5)
-CM= plt.pcolormesh(Z, X, w(1), shading='gouraud',cmap='PRGn', vmin=-2e-4,vmax=2e-4)
+CM= plt.pcolormesh(Z, X, w(1), shading='gouraud',cmap='PRGn', vmin=-vmax,vmax=vmax)
 cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Velocity Field')
 plt.ylabel('vertical depth')
@@ -180,7 +180,7 @@ order = 2
 fig,ax= plt.subplots(constrained_layout=True)
 CS = plt.contour(Z, X, psi_arr_corrected[2, :, :], 30, colors='k')
 plt.clabel(CS, CS.levels[1::5],inline=1,fontsize=5)
-CM= plt.pcolormesh(Z, X, w(2), shading='gouraud',cmap='PRGn', vmin=-2e-4,vmax=2e-4)
+CM= plt.pcolormesh(Z, X, w(2), shading='gouraud',cmap='PRGn', vmin=-vmax,vmax=vmax)
 cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Velocity Field')
 plt.ylabel('vertical depth')
@@ -193,7 +193,7 @@ order = N
 fig,ax= plt.subplots(constrained_layout=True)
 CS = plt.contour(Z, X, psi_arr_corrected[N, :, :], 30, colors='k')
 plt.clabel(CS, CS.levels[1::5],inline=1,fontsize=5)
-CM= plt.pcolormesh(Z, X, w(order), shading='gouraud',cmap='PRGn', vmin=-2e-4,vmax=2e-4)
+CM= plt.pcolormesh(Z, X, w(order), shading='gouraud',cmap='PRGn', vmin=-vmax,vmax=vmax)
 cbar = fig.colorbar(CM)
 cbar.ax.set_ylabel('Velocity Field')
 plt.ylabel('vertical depth')

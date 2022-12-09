@@ -78,7 +78,7 @@ v_x_arr = np.zeros((N + 1, nx, nz))
 v_arr = np.zeros((N + 1, nx, nz))
 max_vals = np.zeros(N + 1)
 
-run_folder =  'Re_big/'
+run_folder =  'Re_small/'
 class Solver_n:
     def __init__(self, visc, coriolis, damp, wind, order):
 
